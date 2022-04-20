@@ -1,0 +1,17 @@
+{
+  "info": {
+    "name": "Magic Upload",
+    "authors": [{
+        "name": "Mack",
+        "discord_id": "365247132375973889",
+        "github_username": "mack",
+        "twitter_username": "mackboudreau"
+    }],
+    "version": "0.0.1",
+    "description": "🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.",
+    "github": "https://github.com/mack/magic-upload",
+    "github_raw": ""
+  },
+  "changelog": [],
+  "main": "index.js"
+}
