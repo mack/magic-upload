@@ -1,17 +1,50 @@
 {
-  "info": {
-    "name": "Magic Upload",
-    "authors": [{
-        "name": "Mack",
-        "discord_id": "365247132375973889",
-        "github_username": "mack",
-        "twitter_username": "mackboudreau"
-    }],
-    "version": "0.0.1",
-    "description": "🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.",
-    "github": "https://github.com/mack/magic-upload",
-    "github_raw": ""
-  },
-  "changelog": [],
-  "main": "index.js"
-}
+    "main": "bundled.js",
+    "info": {
+      "name": "Magic Upload",
+      "authors": [{
+          "name": "Mack",
+          "discord_id": "365247132375973889",
+          "github_username": "mack",
+          "twitter_username": "mackboudreau"
+      }],
+      "version": "0.0.1",
+      "description": "🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.",
+      "github": "https://github.com/mack/magic-upload",
+      "github_raw": ""
+    },
+    "changelog": [],
+    "defaultConfig": [
+        {
+            "type": "switch",
+            "id": "grandOverride",
+            "name": "Automatic Upload",
+            "note": "Do not ask me when uploading files that exceed size limit.",
+            "value": true
+        },
+        {
+            "type": "category",
+            "id": "advanced",
+            "name": "Advanced Settings",
+            "collapsible": true,
+            "shown": false,
+            "settings": [
+
+                {
+                    "type": "textbox",
+                    "id": "textbox",
+                    "name": "OAuth Client ID",
+                    "value": "nothing",
+                    "placeholder": "0000-0000-0000"
+                },
+                {
+                    "type": "textbox",
+                    "id": "textbox",
+                    "name": "OAuth Secret",
+                    "value": "nothing",
+                    "placeholder": "XXXXXXXXXXXXXXXXXXX"
+                }
+            ]
+        }
+    ]
+  }

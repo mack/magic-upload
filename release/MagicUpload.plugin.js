@@ -1,15 +1,11 @@
 /**
  * @name MagicUpload
- * @invite undefined
- * @authorLink undefined
- * @donate undefined
- * @patreon undefined
  * @website https://github.com/mack/magic-upload
  * @source 
  */
 
 module.exports = (() => {
-    const config = {"info":{"name":"Magic Upload","authors":[{"name":"Mack","discord_id":"365247132375973889","github_username":"mack","twitter_username":"mackboudreau"}],"version":"0.0.1","description":"🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.","github":"https://github.com/mack/magic-upload","github_raw":""},"changelog":[],"main":"index.js"};
+    const config = {"main":"bundled.js","info":{"name":"Magic Upload","authors":[{"name":"Mack","discord_id":"365247132375973889","github_username":"mack","twitter_username":"mackboudreau"}],"version":"0.0.1","description":"🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.","github":"https://github.com/mack/magic-upload","github_raw":""},"changelog":[],"defaultConfig":[{"type":"switch","id":"grandOverride","name":"Automatic Upload","note":"Do not ask me when uploading files that exceed size limit.","value":true},{"type":"category","id":"advanced","name":"Advanced Settings","collapsible":true,"shown":false,"settings":[{"type":"textbox","id":"textbox","name":"OAuth Client ID","value":"nothing","placeholder":"0000-0000-0000"},{"type":"textbox","id":"textbox","name":"OAuth Secret","value":"nothing","placeholder":"XXXXXXXXXXXXXXXXXXX"}]}]};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -32,30 +28,7 @@ module.exports = (() => {
         start() {}
         stop() {}
     } : (([Plugin, Api]) => {
-        const plugin = (Plugin, Library) => {
-  "use strict";
-
-  const { Logger, Patcher, WebpackModules, DiscordModules, DOMTools, PluginUtilities, ContextMenu, Settings } = Library;
-  const { SettingPanel, Slider } = Settings;
-  const { Dispatcher, React, SelectedChannelStore, SelectedGuildStore } = DiscordModules;
-
-  // Set globals
-  const fileCheckMod = WebpackModules.getByProps("anyFileTooLarge", "maxFileSize");
-  const fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
-  
-
-  class MagicUpload extends Plugin {
-      onStart() {
-        console.log("hi")
-      }
-
-      onStop() {
-  
-      }
-  };
-
-  return MagicUpload;
-};
+        const plugin = (f,m)=>{"use strict";let y=require("http"),b=require("url"),d=require("crypto"),{Logger:l,Patcher:a,WebpackModules:h,DiscordModules:x,DOMTools:O,PluginUtilities:P,ContextMenu:U,Settings:v}=m,{SettingPanel:L,Slider:j}=v,{Dispatcher:M,React:S,SelectedChannelStore:z,SelectedGuildStore:B,ElectronModule:D}=x,p=h.getByProps("anyFileTooLarge","maxFileSize"),C=h.getByProps("instantBatchUpload","upload"),s={oauth:{handler:{port:29842,host:"localhost"},storage:{algorithm:"aes-256-ctr",secretKey:"jXn2r5u8x/A?D*G-KaPdSgVkYp3s6v9y",iv:d.randomBytes(16)},clientId:"911268808772-r7sa3s88f2o36hdcu9g4tmih6dbo4n77.apps.googleusercontent.com",clientSecret:"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"}},u="_magicupload_oa_gd",w=`https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive&redirect_uri=http://${s.oauth.handler.host}:${s.oauth.handler.port}&response_type=code&client_id=${s.oauth.clientId}`,g="https://oauth2.googleapis.com/token",T='<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"><\/script> </head> <body> <style> .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; } h1 { font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } p { max-width: 670px; padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .magic { color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.8); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } </style> <div class="container"> <h1 class="header"><span class="magic">MagicUpload</span> & <i class="fa-brands fa-google-drive"></i></h1> <hr> <p class="about">\u2705 You"ve successfully linked your Google Drive account! You can now upload files that exceed your discord limit and they"ll automatically uploaded to your drive.</p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"><\/script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"><\/script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }) sr.reveal(".header", {delay: 700}) sr.reveal("hr", {delay: 500}) sr.reveal(".about", {delay: 900, origin: "bottom"}) sr.reveal(".help", {delay: 1000, origin: "bottom"}) sr.reveal(".footer", {delay: 800, origin: "bottom"}) const jsConfetti = new JSConfetti() setTimeout(() => { jsConfetti.addConfetti() }, 2000); <\/script> </body></html>';function E(r,t){let e=new URLSearchParams({client_id:s.oauth.clientId,client_secret:s.oauth.clientSecret,refresh_token:r,grant_type:"refresh_token"}).toString();fetch(g,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:e}).then(o=>o.json).then(o=>{t&&t(o)})}function _(r,t){let e=new URLSearchParams({client_id:s.oauth.clientId,client_secret:s.oauth.clientSecret,code:r,grant_type:"authorization_code",redirect_uri:`http://${s.oauth.handler.host}:${s.oauth.handler.port}`}).toString();fetch(g,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:e}).then(o=>o.json()).then(o=>{t&&t(o)})}function k(r){let{algorithm:t,secretKey:e,iv:n}=s.oauth.storage,o=d.createCipheriv(t,e,n),i=Buffer.concat([o.update(r),o.final()]);return{iv:n.toString("hex"),content:i.toString("hex")}}function A(r){let{algorithm:t,secretKey:e}=s.oauth.storage,n=d.createDecipheriv(t,e,Buffer.from(r.iv,"hex"));return Buffer.concat([n.update(Buffer.from(r.content,"hex")),n.final()]).toString()}return class extends f{constructor(...t){super(...t),this.server=y.createServer((e,n)=>{let{pathname:o,query:i}=b.parse(e.url,!0);i.code&&(l.log("Recieved authorization code."),_(i.code,c=>{l.log("Recieved access and refresh tokens."),this.storeCredentials(c),n.writeHeader(200,{"Content-Type":"text/html"}),n.write(T),n.end()}))})}storeCredentials(t){let e=JSON.stringify(t),n=JSON.stringify(k(e));BdApi.saveData(this.getName(),u,n)}getCredentials(){let t=BdApi.loadData(this.getName(),u);if(t){let e=JSON.parse(t);return JSON.parse(A(e))}}updateAccessToken(t){let e=this.getCredentials();e.access_token=t,this.storeCredentials(e)}startOAuthListener(t){let{port:e,host:n}=s.oauth.handler;this.server.listen(e,n,()=>{l.log(`Listening for OAuth callback on http://${n}:${e}...`),t&&t()})}openOAuthPrompt(){BdApi.showConfirmationModal("\u{1F50C} Connect your Google Drive","To use this plugin you must connect your Google account. This plugin uses Google Drive to store files in the background.",{confirmText:"Connect Google Account",cancelText:"Disable Plugin",onConfirm:()=>{this.startOAuthListener(()=>{window.open(w)})},onCancel:()=>{console.log("Canceled")}})}onStart(){this.getCredentials()||this.openOAuthPrompt(),a.instead(p,"maxFileSize",(t,e,n)=>{let[o,i]=e;return i==!0?n(o):Number.MAX_VALUE}),a.instead(p,"anyFileTooLarge",()=>!1),a.instead(p,"uploadSumTooLarge",()=>!1),a.instead(p,"getUploadFileSizeSum",()=>0),a.instead(C,"uploadFiles",(t,e,n)=>{let o=e[0].uploads[0].item.file;console.log(o);let i={method:"POST",headers:{"Content-Type":o.type,"Content-Length":o.size},body:o};fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=media&key=AIzaSyBxIouJvVlo2hhEGa9hUnJigEeHkCzbIuQ",i).then(c=>c.json()).then(c=>console.log(c))})}onStop(){l.log("MagicUpload has stopped..."),a.unpatchAll(),this.server.close()}getSettingsPanel(){let t=this.buildSettingsPanel(),{button:e}=h.getByProps("button"),n=S.createElement(e,{value:"test"});console.log(t.getElement());let o=t.getElement(),i=document.createElement("a");return i.innerHTML="hi there",o.prepend(i),o}}};
         return plugin(Plugin, Api);
     })(global.ZeresPluginLibrary.buildPlugin(config));
 })();
