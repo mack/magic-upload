@@ -1,3 +1,9 @@
+/*
+    TODO: 
+        - Only use MagicUpload for files that exceed limit.
+        - Direct download link to large files.
+        - Display file upload progress in client-side message.
+*/
 module.exports = (Plugin, Library) => {
     "use strict";
 
@@ -168,27 +174,22 @@ module.exports = (Plugin, Library) => {
 
         streamChunks(streamLocation, file, from, callback) {        
             const accessToken = this.storage.getAccessToken();
+            // const unregisterUpload = this.storage.unregisterUpload;
             const CHUNK_SIZE = INTERNAL_CONFIG.upload.chunkMultiplier * 256 * 1024;
-            
+            console.log(streamLocation)
+            console.log(file);
+
             const buffer = Buffer.alloc(CHUNK_SIZE);
 
             fs.open(file.path, "r", function(err, fd) {
-                if (err) {
-                    Logger.err("Unable to open file.");
-                    warnToast(`Unable to upload ${file.name}`);
-                    this.unregisterUpload(streamLocation);
-                    return;
-                };
-
+                if (err || !fd) {
+                    callback(null, err);
+                }
                 const readNextChunk = (cursor) => {
                     fs.read(fd, buffer, 0, CHUNK_SIZE, cursor, (err, byteLength) => {
                         if (err) {
-                            Logger.err("Unable to read file.");
-                            warnToast(`Unable to upload ${file.name}`);
-                            this.unregisterUpload(streamLocation);
-                            return;
+                            callback(null, err);
                         }
-
                         var chunk;
                         if (byteLength < CHUNK_SIZE) {
                             // Read bytes are smaller than the chunk size.
@@ -231,7 +232,7 @@ module.exports = (Plugin, Library) => {
                                 res.on('close', () => {
                                     fs.close(fd, _ => {
                                         successToast(`Successfully uploaded ${truncate(file.name, 35)}`);
-                                        callback(JSON.parse(responseData));
+                                        callback(JSON.parse(responseData), null);
                                     })
                                     
                                 })
@@ -260,10 +261,10 @@ module.exports = (Plugin, Library) => {
             fetch(GOOGLE_DRIVE_API_URL + `/${driveId}/permissions`, options).then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    if (data.error.code === HTTP_CODE_UNAUTHORIZED) {
-                        // Retry logic
-                    } else {
-                        // Another error
+                    if (data.error.code === HTTP_CODE_UNAUTHORIZED && !retry) {
+                        this.oauther.refresh(() => {
+                            this.share(driveId, callback, true);
+                        });
                     }
                 } else {
                     if (callback) callback();
@@ -286,48 +287,35 @@ module.exports = (Plugin, Library) => {
             }, this.storage)
             
             fetch(GOOGLE_DRIVE_UPLOAD_URL, options).then(response => {
-                console.log(response);
                 if (response.status === HTTP_CODE_OK) {
                     const streamLocation = response.headers.get("Location");
                     // Forced to copy the file reference.
                     this.registerUpload(streamLocation, file);
-                    this.streamChunks(streamLocation, file, 0, (driveItem) => {
-                        // Upload is finished
-                        // Remove it from the upload registry and send the correct message.
+                    this.streamChunks(streamLocation, file, 0, (driveItem, err) => {
+                        // Upload has completed or failed. Remove from registry
                         this.unregisterUpload(streamLocation);
-
-                        // Share the drive item and post a link
-                        this.share(driveItem.id, () => {
-                            this.sendUploadMessage(file, getDriveLink(driveItem.id));
-                        })
+                        if (err === null) {
+                            // Upload was successful, add permissions and share!
+                            this.share(driveItem.id, () => {
+                                this.sendUploadMessage(file, getDriveLink(driveItem.id));
+                            })
+                        } else {
+                            Logger.err("Upload has failed.");
+                            errToast(`Upload failed ${truncate(file.name, 35)}`);
+                            
+                        }
                     });
                 } else if (response.status === HTTP_CODE_UNAUTHORIZED && !retry) {
                     // Access token may be expired, try to refresh
-                    Logger.warn("Access token failed. Attempting to refresh token.");
-                    const { refresh_token } = this.storage.load(INTERNAL_CONFIG.storage.credentialsKey, true);
-                    if (refresh_token) {
-                        this.oauther.refreshAccessToken(refresh_token, ({ access_token }) => {
-                            if (access_token) {
-                                Logger.log("Successfully refreshed access token.");
-                                this.storage.patchAccessToken(access_token);
-                                // Attempt upload again with new token
-                                this.upload(file, true);
-                            } else {
-                                // Refresh token may have expired, force another oauth prompt
-                                Logger.warn("Refresh token may have expired. Please reconnect your Google account.");
-                                this.storage.deleteCredentials();
-                                this.oauther.launch();
-                            }
-                        })    
-                    } else {
-                        Logger.err("Something went wrong. Clearing OAuth credentials.");
-                        this.storage.deleteCredentials();
-                    }
+                    this.oauther.refresh(() => {
+                        this.upload(file, true);
+                    });
                 }
             })
         }
         sendUploadMessage(file, link) {
-            const formattedMessage = file.mu_content !== "" ? + file.mu_content + '\n' + link : link;
+            console.log(file);
+            const formattedMessage = file.mu_content !== "" ? file.mu_content + '\n' + link : link;
             _messageActions.sendMessage(file.mu_destination, {content: formattedMessage, validNonShortcutEmojis: []})
         }
     }
@@ -460,6 +448,27 @@ module.exports = (Plugin, Library) => {
                 if (callback) callback(data);
             });
         }
+        refresh(callback) {
+            const { refresh_token } = this.storage.load(INTERNAL_CONFIG.storage.credentialsKey, true);
+            if (refresh_token) {
+                this.refreshAccessToken(refresh_token, ({ access_token }) => {
+                    if (access_token) {
+                        // Access token has been refreshed.
+                        Logger.log("Successfully refreshed access token.");
+                        this.storage.patchAccessToken(access_token);
+                        if (callback) callback(access_token);
+                    } else {
+                        // Refresh token may have expired, force another oauth prompt
+                        Logger.warn("Refresh token may have expired. Please reconnect your Google account.");
+                        this.storage.deleteCredentials();
+                        this.launch();
+                    }
+                })    
+            } else {
+                Logger.err("Something went wrong. Clearing OAuth credentials.");
+                this.storage.deleteCredentials();
+            }
+        }
         refreshAccessToken(refreshToken, callback) {
             const body = new URLSearchParams({
                 client_id: INTERNAL_CONFIG.oauth.clientId,
@@ -535,21 +544,14 @@ module.exports = (Plugin, Library) => {
             Patcher.instead(_fileUploadMod, "uploadFiles", (_, [ args ], original) => {
                 const { channelId, uploads, parsedMessage } = args;
                 uploads.forEach(upload => {
-                    if (upload.item.file.size < this.uploadLimit && false) {
+                    if (upload.item.file.size < this.uploadLimit()) {
                         // File is within discord upload limit, upload as normal
                         const argsCopy = Object.assign({}, args);
                         argsCopy.uploads = [upload];
                         original(argsCopy);
                     } else {
-                        // channelId - where the file shud be sent
-                        // parsedMessage.content - corresponding message with file
-
-                        // File exceeds upload limit
-                        // this.uploadFile(file)
-                        // this.sendFileLink() 
                         const magicFile = convertFileToMagicFile(upload.item.file, channelId, parsedMessage.content);
                         this.uploader.upload(magicFile);
-                        // original(args);
                     }
                 })
             })
