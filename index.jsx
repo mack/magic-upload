@@ -11,6 +11,7 @@ module.exports = (Plugin, Library) => {
     const { Logger, Patcher, WebpackModules } = Library;
     const _fileCheckMod = WebpackModules.getByProps("anyFileTooLarge", "maxFileSize");
     const _fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
+    const _messageActions = global.BdApi.findModuleByProps("sendMessage");
     const _button = BdApi.findModuleByProps("BorderColors");
     const _modalsApi = BdApi.findModuleByProps("useModalsStore", "closeModal");
 
@@ -30,6 +31,10 @@ module.exports = (Plugin, Library) => {
             iv: crypto.randomBytes(16),
             credentialsKey: "_magicupload_oa_creds_gd",
             uploadsKey: "_magicupload_files_inprogress"
+        },
+        upload: {
+            // Google Drive requires chunks to be multiples of 256KB
+            chunkMultiplier: 10,
         }
     }
     const HTTP_CODE_OK = 200;
@@ -40,7 +45,10 @@ module.exports = (Plugin, Library) => {
     const OAUTH_AUTH_URL = `https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive&redirect_uri=http://${INTERNAL_CONFIG.oauth.handler.host}:${INTERNAL_CONFIG.oauth.handler.port}&response_type=code&client_id=${INTERNAL_CONFIG.oauth.clientId}`
     const OAUTH_TOKEN_URL = `https://oauth2.googleapis.com/token`
     const OAUTH_REVOKE_URL = `https://oauth2.googleapis.com/revoke`
-    const GOOGLE_DRIVE_URL = `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`
+    const GOOGLE_DRIVE_UPLOAD_URL = `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`
+    const GOOGLE_DRIVE_API_URL = `https://www.googleapis.com/drive/v3/files`;
+    const DRIVE_READ_ROLE = 'reader';
+    const DRIVE_ANYONE_GRANTEE = 'anyone';
     const SUCCESS_HTML = () => `<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Google Drive Connected</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } .header img { width: 80px; } .header { display: flex; align-items: center; font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } .header i { font-size: 18px; margin: 0 0.5rem; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .magic { color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } </style> <div class="container"> <h1 class="header"><span class="magic">MagicUpload</span> <i class="fa-solid fa-link"></i> <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" /></h1> <hr> <p class="about">✅ You"ve successfully linked your Google Drive account! You can now upload files that exceed your discord limit and they"ll automatically uploaded to your drive.</p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); const jsConfetti = new JSConfetti(); setTimeout(() => { jsConfetti.addConfetti() }, 2000); </script> </body></html>`;
     const ERROR_HTML = (props) => `<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Error</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } h1 { font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .error, .header > i { color: rgb(229, 45, 45); text-shadow: 0 8px 24px rgb(229 45 45 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } .error_container { max-width: 100%; position: relative; } .error_container:hover .error_label { opacity: 0.3; } .error_code { font-size: 14px; background-color: rgba(0,0,0,0.92); border-radius: 6px; padding-top: 2rem; padding-bottom: 2rem; padding-right: 2rem; padding-left: 2rem; color: white; text-align: left; word-wrap: break-word; font-family: 'Roboto Mono', monospace; } .error_label { transition: .3s; cursor: default; font-size: 12px; text-transform: uppercase; opacity: 0; color: white; position: absolute; right: 2rem; top: 1rem; } </style> <div class="container"> <h1 class="header"><i class="fa-solid fa-triangle-exclamation"></i> Uh oh, something went <span class="error">wrong</span> <i class="fa-solid fa-triangle-exclamation"></i></h1> <hr> <p class="about">We weren&#39;t able to connect your Google Drive account with MagicUpload. Please try again or reach out to help in our community discord. </p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <div class="error_container"> <span class="error_label">OAuth Response // JSON</span> <div class="error_code"> ${props.error_message} </div> </div> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".error_code", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); </script> </body></html>`;
 
@@ -52,7 +60,13 @@ module.exports = (Plugin, Library) => {
         }
         return options;
     }
-    const copyFile = file => {
+    
+    const truncate = (str, n) => {
+        return (str.length > n) ? str.substr(0, n - 1) + '...' : str;
+    };
+    const getDriveLink = driveId => `https://drive.google.com/file/d/${driveId}`;
+    const getDirectDriveLink = driveId => `https://drive.google.com/uc?export=download&id=${driveId}`;
+    const convertFileToMagicFile = (file, destination, content) => {
         return {
             lastModified: file.lastModified,
             lastModifiedDate: file.lastModifiedDate,
@@ -60,7 +74,9 @@ module.exports = (Plugin, Library) => {
             path: file.path,
             size: file.size,
             type: file.type,
-            webkitRelativePath: file.webkitRelativePath
+            webkitRelativePath: file.webkitRelativePath,
+            mu_destination: destination,
+            mu_content: content
         }       
     }
     const parseRecievedRange = (rangeHeader) => {
@@ -75,6 +91,7 @@ module.exports = (Plugin, Library) => {
             _modalsApi.closeModal(lastModal.key);
         }
     }
+    
     const successToast = (content, overrides) => BdApi.showToast(content, { type: "success", ...overrides });
     const infoToast = (content, overrides) => BdApi.showToast(content, { type: "info", ...overrides });
     const warnToast = (content, overrides) => BdApi.showToast(content, { type: "warning", ...overrides });
@@ -104,7 +121,6 @@ module.exports = (Plugin, Library) => {
                                 this.streamChunks(streamLocation, registeredUploads[streamLocation], cursor, (data) => {
                                     // Upload has finished
                                     // Data has ID for file in google drive
-                                    console.log(data);
                                     this.unregisterUpload(streamLocation);
                                 })
                                 break;
@@ -130,7 +146,6 @@ module.exports = (Plugin, Library) => {
             registry[streamLocation] = fileCopy;
             this.storage.store(INTERNAL_CONFIG.storage.uploadsKey, registry);
         }
-
         unregisterUpload(streamLocation) {
             Logger.log("Unregistering upload from upload registry.");
             const registry = this.getRegisteredUploads();
@@ -151,15 +166,17 @@ module.exports = (Plugin, Library) => {
             })
         }
 
-        streamChunks(streamLocation, file, from, callback) {            
+        streamChunks(streamLocation, file, from, callback) {        
             const accessToken = this.storage.getAccessToken();
-            const CHUNK_SIZE = 10 * 256 * 1024; // ~2.6MB
-
+            const CHUNK_SIZE = INTERNAL_CONFIG.upload.chunkMultiplier * 256 * 1024;
+            
             const buffer = Buffer.alloc(CHUNK_SIZE);
 
             fs.open(file.path, "r", function(err, fd) {
                 if (err) {
                     Logger.err("Unable to open file.");
+                    warnToast(`Unable to upload ${file.name}`);
+                    this.unregisterUpload(streamLocation);
                     return;
                 };
 
@@ -167,6 +184,8 @@ module.exports = (Plugin, Library) => {
                     fs.read(fd, buffer, 0, CHUNK_SIZE, cursor, (err, byteLength) => {
                         if (err) {
                             Logger.err("Unable to read file.");
+                            warnToast(`Unable to upload ${file.name}`);
+                            this.unregisterUpload(streamLocation);
                             return;
                         }
 
@@ -197,10 +216,7 @@ module.exports = (Plugin, Library) => {
                                 "Content-Range": `bytes ${start}-${end}/${total}`
                             },
                         }
-                        console.log(options);
-                        console.log(streamLocation);
-
-                        console.log("Uploading chunk... range: " + start + "-" + end + " out of "  + total);
+                        Logger.info(`[${((start / total) * 100).toFixed(2)}%] Uploading ${file.name} (${start}/${total})`);
                         // Fetch unfortunately does handle Buffer objects well
                         // so we're forced to use `https` to process our requests
                         const uploadChunk = https.request(options, function(res) {
@@ -211,10 +227,11 @@ module.exports = (Plugin, Library) => {
                             if (res.statusCode === HTTP_CODE_OK) {
                                 // File has been uploaded
                                 var responseData = "";
-                                res.on('data', (chunk) => { responseData += chunk; });
+                                res.on('data', chunk => { responseData += chunk; });
                                 res.on('close', () => {
-                                    fs.close(fd, (err) => {
-                                        callback(JSON.parse(responseData))
+                                    fs.close(fd, _ => {
+                                        successToast(`Successfully uploaded ${truncate(file.name, 35)}`);
+                                        callback(JSON.parse(responseData));
                                     })
                                     
                                 })
@@ -227,7 +244,33 @@ module.exports = (Plugin, Library) => {
                 readNextChunk(from);
             });
         }
-
+        share(driveId, callback, retry) {
+            const body = {
+                role: DRIVE_READ_ROLE,
+                type: DRIVE_ANYONE_GRANTEE
+            }
+            const options = optionsWithAuth({
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json; charset=UTF-8",
+                },
+                body: JSON.stringify(body)
+            }, this.storage)
+            
+            fetch(GOOGLE_DRIVE_API_URL + `/${driveId}/permissions`, options).then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    if (data.error.code === HTTP_CODE_UNAUTHORIZED) {
+                        // Retry logic
+                    } else {
+                        // Another error
+                    }
+                } else {
+                    if (callback) callback();
+                }
+            })
+            
+        }
         upload(file, retry) {
             const body = {
                 name: file.name,
@@ -242,18 +285,21 @@ module.exports = (Plugin, Library) => {
                 body: JSON.stringify(body)
             }, this.storage)
             
-            fetch(GOOGLE_DRIVE_URL, options).then(response => {
+            fetch(GOOGLE_DRIVE_UPLOAD_URL, options).then(response => {
                 console.log(response);
                 if (response.status === HTTP_CODE_OK) {
                     const streamLocation = response.headers.get("Location");
                     // Forced to copy the file reference.
-                    const copy = copyFile(file);
-                    this.registerUpload(streamLocation, copy);
-                    this.streamChunks(streamLocation, copy, 0, (data) => {
-                        // Upload has finished
-                        // Data has ID for file in google drive
+                    this.registerUpload(streamLocation, file);
+                    this.streamChunks(streamLocation, file, 0, (driveItem) => {
+                        // Upload is finished
+                        // Remove it from the upload registry and send the correct message.
                         this.unregisterUpload(streamLocation);
-                        console.log(data);
+
+                        // Share the drive item and post a link
+                        this.share(driveItem.id, () => {
+                            this.sendUploadMessage(file, getDriveLink(driveItem.id));
+                        })
                     });
                 } else if (response.status === HTTP_CODE_UNAUTHORIZED && !retry) {
                     // Access token may be expired, try to refresh
@@ -279,6 +325,10 @@ module.exports = (Plugin, Library) => {
                     }
                 }
             })
+        }
+        sendUploadMessage(file, link) {
+            const formattedMessage = file.mu_content !== "" ? + file.mu_content + '\n' + link : link;
+            _messageActions.sendMessage(file.mu_destination, {content: formattedMessage, validNonShortcutEmojis: []})
         }
     }
 
@@ -483,7 +533,7 @@ module.exports = (Plugin, Library) => {
 
             /* "Extended" upload logic */
             Patcher.instead(_fileUploadMod, "uploadFiles", (_, [ args ], original) => {
-                const { uploads } = args;
+                const { channelId, uploads, parsedMessage } = args;
                 uploads.forEach(upload => {
                     if (upload.item.file.size < this.uploadLimit && false) {
                         // File is within discord upload limit, upload as normal
@@ -491,11 +541,14 @@ module.exports = (Plugin, Library) => {
                         argsCopy.uploads = [upload];
                         original(argsCopy);
                     } else {
+                        // channelId - where the file shud be sent
+                        // parsedMessage.content - corresponding message with file
+
                         // File exceeds upload limit
                         // this.uploadFile(file)
                         // this.sendFileLink() 
-                        console.log('uploading')
-                        this.uploader.upload(upload.item.file)
+                        const magicFile = convertFileToMagicFile(upload.item.file, channelId, parsedMessage.content);
+                        this.uploader.upload(magicFile);
                         // original(args);
                     }
                 })
@@ -583,6 +636,14 @@ module.exports = (Plugin, Library) => {
                             name: "Google Drive embeds",
                             note: "Attempt to display an embedded preview of content from google drive links.",
                             value: true,
+                            onChange: (val) => console.log("CHANGINGINSDGINGING")
+                        },
+                        {
+                            type: "switch",
+                            id: "verbose",
+                            name: "Verbose Logs",
+                            note: "Display verbose console logs. Useful for debugging.",
+                            value: false,
                             onChange: (val) => console.log("CHANGINGINSDGINGING")
                         },
                         {
