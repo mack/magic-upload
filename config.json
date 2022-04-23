@@ -14,37 +14,5 @@
       "github_raw": ""
     },
     "changelog": [],
-    "defaultConfig": [
-        {
-            "type": "switch",
-            "id": "grandOverride",
-            "name": "Automatic Upload",
-            "note": "Do not ask me when uploading files that exceed size limit.",
-            "value": true
-        },
-        {
-            "type": "category",
-            "id": "advanced",
-            "name": "Advanced Settings",
-            "collapsible": true,
-            "shown": false,
-            "settings": [
-
-                {
-                    "type": "textbox",
-                    "id": "textbox",
-                    "name": "OAuth Client ID",
-                    "value": "nothing",
-                    "placeholder": "0000-0000-0000"
-                },
-                {
-                    "type": "textbox",
-                    "id": "textbox",
-                    "name": "OAuth Secret",
-                    "value": "nothing",
-                    "placeholder": "XXXXXXXXXXXXXXXXXXX"
-                }
-            ]
-        }
-    ]
+    "defaultConfig": []
   }

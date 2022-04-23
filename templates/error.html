@@ -4,9 +4,9 @@
         <meta charset="UTF-8">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap" as="style">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap">
-        <title>Magic Upload - Google Drive Connected</title>
+        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap" as="style">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap">
+        <title>Magic Upload - Error</title>
         <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script>
     </head>
     <body>
@@ -35,23 +35,15 @@
                 padding-left: 5rem;
                 padding-right: 5rem;
             }
-            .header img {
-                width: 80px;
-            }
-            .header {
-                display: flex;
-                align-items: center;
+            h1 {
                 font-family: "Staatliches", cursive;
                 font-size: 48px;
                 margin-bottom: 0;
             }
-            .header i {
-                font-size: 18px;
-                margin: 0 0.5rem;
-            }
             p {
                 padding: 0 2rem;
                 margin-top: 0;
+                margin-bottom: 0;
                 font-size: 18px;
                 line-height: 24px;
             }
@@ -61,9 +53,9 @@
                 font-size: 14px;
                 opacity: 0.4;
             }
-            .magic {
-                color: #5e2de5;
-                text-shadow: 0 8px 24px rgb(94 45 229 / 25%);
+            .error, .header > i {
+                color: rgb(229, 45, 45);
+                text-shadow: 0 8px 24px rgb(229 45 45 / 25%);
             }
             .tooltip {
                 position: relative;
@@ -115,14 +107,52 @@
                 width: 50px;
                 opacity: 0.5;
             }
+            .error_container {
+                width: 100%;
+                position: relative;
+                margin: 1.25rem 0;
+            }
+            .error_container:hover .error_label {
+                opacity: 0.3;
+            }
+            .error_code {
+                font-size: 14px;
+                background-color: rgba(0,0,0,0.92);
+                border-radius: 6px;
+                padding-top: 2rem;
+                padding-bottom: 2rem;
+                padding-right: 2rem;
+                padding-left: 2rem;
+                color: white;
+                text-align: left;
+                word-wrap: break-word;
+                font-family: 'Roboto Mono', monospace;
+            }
+            .error_label {
+                transition: .3s;
+                cursor: default;
+                font-size: 12px;
+                text-transform: uppercase;
+                opacity: 0;
+                color: white;
+                position: absolute;
+                right: 2rem;
+                top: 1rem;
+            }
         </style>
         <div class="container" id="container">
-            <h1 class="header"><span class="magic">MagicUpload</span> <i class="fa-solid fa-link"></i> <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" /></h1>
+            <h1 class="header"><i class="fa-solid fa-triangle-exclamation"></i> Uh oh, something went <span class="error">wrong</span> <i class="fa-solid fa-triangle-exclamation"></i></h1>
             <hr>
-            <p class="about">You"ve successfully linked your Google Drive account!
-                <b>You can now upload files that exceed your discord limit</b>
-                and they&#39;ll be automagically uploaded to your drive.</p>
-            <p class="help">Need any help? Find us at 
+            <p class="about">We weren&#39;t able to connect your Google Drive account with MagicUpload.
+                Please try again or reach out to help in our community discord.
+            </p>
+            <div class="error_container">
+                <span class="error_label">OAuth Response // JSON</span>
+                <div class="error_code">
+                    ${props.error_message}
+                </div>
+            </div>
+            <p class="help">Need any help? Find us at
                 <a href="https://github.com/mack/magic-upload" class="tooltip">
                     <i class="fa-brands fa-github"></i>
                     <span class="tooltiptext">GitHub</span>
@@ -146,14 +176,13 @@
                     duration: 2500,
                     delay: 400,
                 });
-                sr.reveal(".header", {delay: 700});
-                sr.reveal("hr", {delay: 900});
-                sr.reveal(".about", {delay: 1000, origin: "bottom"});
-                sr.reveal(".help", {delay: 1200, origin: "bottom"});
-                sr.reveal(".footer", {delay: 1400, origin: "bottom"});
 
-                const jsConfetti = new JSConfetti();
-                setTimeout(() => { jsConfetti.addConfetti() }, 2000);
+                sr.reveal(".header", {delay: 700});
+                sr.reveal("hr", {delay: 500});
+                sr.reveal(".about", {delay: 900, origin: "bottom"});
+                sr.reveal(".error_code", {delay: 1200, origin: "bottom"});
+                sr.reveal(".help", {delay: 1400, origin: "bottom"});
+                sr.reveal(".footer", {delay: 1500, origin: "bottom"});
                 document.getElementById("container").style.display = "flex"
             });
         </script>
