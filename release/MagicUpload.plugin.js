@@ -1,34 +1,10 @@
 /**
  * @name MagicUpload
  * @website https://github.com/mack/magic-upload
- * @source 
+ * @source
  */
 
-module.exports = (() => {
-    const config = {"main":"bundled.js","info":{"name":"Magic Upload","authors":[{"name":"Mack","discord_id":"365247132375973889","github_username":"mack","twitter_username":"mackboudreau"}],"version":"0.0.1","description":"🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.","github":"https://github.com/mack/magic-upload","github_raw":""},"changelog":[],"defaultConfig":[]};
-
-    return !global.ZeresPluginLibrary ? class {
-        constructor() {this._config = config;}
-        getName() {return config.info.name;}
-        getAuthor() {return config.info.authors.map(a => a.name).join(", ");}
-        getDescription() {return config.info.description;}
-        getVersion() {return config.info.version;}
-        load() {
-            BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
-                confirmText: "Download Now",
-                cancelText: "Cancel",
-                onConfirm: () => {
-                    require("request").get("https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js", async (error, response, body) => {
-                        if (error) return require("electron").shell.openExternal("https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
-                        await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
-                    });
-                }
-            });
-        }
-        start() {}
-        stop() {}
-    } : (([Plugin, Api]) => {
-        const plugin = (Plugin, Library) => {
+ module.exports = (() => {
   /* ========== Required Dependencies ========== */
   const http = require('http');
   const https = require('https');
@@ -43,9 +19,16 @@ module.exports = (() => {
   const moduleModalActions = global.BdApi.findModuleByProps('useModalsStore', 'closeModal');
 
   /* ========== Global Constants & Internal Config ========== */
-  const INTERNAL_CONFIG = {
+  const config = {
     meta: {
-      name: 'Magic Upload',
+      version: '0.0.1',
+      name: 'MagicUpload',
+      description: '🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.',
+      authors: [{
+        name: 'mack',
+        discord_id: '365247132375973889',
+        github_username: 'mack',
+      }],
     },
     oauth: {
       handler: {
@@ -73,7 +56,7 @@ module.exports = (() => {
   const HTTP_CODE_UNAUTHORIZED = 401;
   const HTTP_CODE_NOT_FOUND = 404;
   const HTTP_CODE_INTERNAL_ERR = 500;
-  const OAUTH_AUTH_URL = `https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive&redirect_uri=http://${INTERNAL_CONFIG.oauth.handler.host}:${INTERNAL_CONFIG.oauth.handler.port}&response_type=code&client_id=${INTERNAL_CONFIG.oauth.clientId}`;
+  const OAUTH_AUTH_URL = `https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive&redirect_uri=http://${config.oauth.handler.host}:${config.oauth.handler.port}&response_type=code&client_id=${config.oauth.clientId}`;
   const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
   const OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
   const GOOGLE_DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable';
@@ -128,39 +111,39 @@ module.exports = (() => {
 
   class XUtil {
     static log(...message) {
-      XUtil.console(message, "log");
+      XUtil.console(message, 'log');
     }
 
     static info(message) {
-      XUtil.console(message, "info");
+      XUtil.console(message, 'info');
     }
 
     static warn(message) {
-      XUtil.console(message, "warn");
+      XUtil.console(message, 'warn');
     }
 
     static err(message) {
-      XUtil.console(message, "err");
+      XUtil.console(message, 'err');
     }
 
     static console(message, type) {
       const consoleTypes = {
-        log: "log",
-        info: "info",
-        dbg: "debug",
-        debug: "debug",
-        warn: "warn",
-        err: "error",
-        error: "error"
-      }
-      let parsedType = Object.prototype.hasOwnProperty.call(consoleTypes, type) ? consoleTypes[type] : "log";
+        log: 'log',
+        info: 'info',
+        dbg: 'debug',
+        debug: 'debug',
+        warn: 'warn',
+        err: 'error',
+        error: 'error',
+      };
+      const parsedType = Object.prototype.hasOwnProperty.call(consoleTypes, type) ? consoleTypes[type] : 'log';
       let parsedMessage = message;
       if (!Array.isArray(message)) parsedMessage = [parsedMessage];
-      console[parsedType](`%c[${INTERNAL_CONFIG.meta.name}]%c`, 'color: #3a71c1; font-weight: 700;', '', ...parsedMessage);
+      console[parsedType](`%c[${config.meta.name}]%c`, 'color: #3a71c1; font-weight: 700;', '', ...parsedMessage);
     }
 
     static encrypt(plain) {
-      const { algorithm, secretKey, iv } = INTERNAL_CONFIG.storage;
+      const { algorithm, secretKey, iv } = config.storage;
       const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
       const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
@@ -171,7 +154,7 @@ module.exports = (() => {
     }
 
     static decrypt(hash) {
-      const { algorithm, secretKey } = INTERNAL_CONFIG.storage;
+      const { algorithm, secretKey } = config.storage;
       const decipher = crypto.createDecipheriv(algorithm, secretKey, Buffer.from(hash.iv, 'hex'));
       const decrpyted = Buffer.concat([decipher.update(Buffer.from(hash.content, 'hex')), decipher.final()]);
       return decrpyted.toString();
@@ -187,7 +170,9 @@ module.exports = (() => {
     }
 
     static clearOverrides() {
-      window.magicUploadOverrides.forEach((cancel) => cancel());
+      if (Array.isArray(window.magicUploadOverrides)) {
+        window.magicUploadOverrides.forEach((cancel) => cancel());
+      }
     }
   }
 
@@ -252,7 +237,7 @@ module.exports = (() => {
     }
 
     getRegisteredUploads() {
-      return this.storage.load(INTERNAL_CONFIG.storage.uploadsKey) || {};
+      return this.storage.load(config.storage.uploadsKey) || {};
     }
 
     registerUpload(streamLocation, file) {
@@ -260,14 +245,14 @@ module.exports = (() => {
       const fileCopy = JSON.parse(JSON.stringify(file));
       const registry = this.getRegisteredUploads();
       registry[streamLocation] = fileCopy;
-      this.storage.store(INTERNAL_CONFIG.storage.uploadsKey, registry);
+      this.storage.store(config.storage.uploadsKey, registry);
     }
 
     unregisterUpload(streamLocation) {
       XUtil.log('Unregistering upload from upload registry.');
       const registry = this.getRegisteredUploads();
       delete registry[streamLocation];
-      this.storage.store(INTERNAL_CONFIG.storage.uploadsKey, registry);
+      this.storage.store(config.storage.uploadsKey, registry);
     }
 
     getStreamStatus(streamLocation, callback) {
@@ -286,9 +271,7 @@ module.exports = (() => {
     streamChunks(streamLocation, file, from, callback) {
       const accessToken = this.storage.getAccessToken();
       // const unregisterUpload = this.storage.unregisterUpload;
-      const CHUNK_SIZE = INTERNAL_CONFIG.upload.chunkMultiplier * 256 * 1024;
-      console.log(streamLocation);
-      console.log(file);
+      const CHUNK_SIZE = config.upload.chunkMultiplier * 256 * 1024;
 
       const buffer = Buffer.alloc(CHUNK_SIZE);
 
@@ -402,12 +385,14 @@ module.exports = (() => {
           // Forced to copy the file reference.
           this.registerUpload(streamLocation, file);
           this.streamChunks(streamLocation, file, 0, (driveItem, err) => {
-            // Upload has completed or failed. Remove from registry
+            // Completed upload. Remove from registry and
+            // handle successful and unsuccessful completed uploads.
             this.unregisterUpload(streamLocation);
             if (err === null) {
               // Upload was successful, add permissions and share!
+              XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
               this.share(driveItem.id, () => {
-                console.log('SHARRINGNNGGNG!');
+                XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
                 FileUploader.sendUploadMessage(file, getDriveLink(driveItem.id));
               });
             } else {
@@ -431,7 +416,7 @@ module.exports = (() => {
       this.pluginName = pluginName;
 
       /* Alias Functions */
-      const { credentialsKey } = INTERNAL_CONFIG.storage;
+      const { credentialsKey } = config.storage;
       this.deleteCredentials = () => this.delete(credentialsKey);
       this.getAccessToken = () => {
         const credentials = this.load(credentialsKey, true);
@@ -476,11 +461,11 @@ module.exports = (() => {
   class OAuther {
     static postAccessToken(authorizationCode, callback) {
       const body = new URLSearchParams({
-        client_id: INTERNAL_CONFIG.oauth.clientId,
-        client_secret: INTERNAL_CONFIG.oauth.clientSecret,
+        client_id: config.oauth.clientId,
+        client_secret: config.oauth.clientSecret,
         code: authorizationCode,
         grant_type: 'authorization_code',
-        redirect_uri: `http://${INTERNAL_CONFIG.oauth.handler.host}:${INTERNAL_CONFIG.oauth.handler.port}`,
+        redirect_uri: `http://${config.oauth.handler.host}:${config.oauth.handler.port}`,
       }).toString();
       const options = {
         method: 'POST',
@@ -496,8 +481,8 @@ module.exports = (() => {
 
     static postRefreshAccessToken(refreshToken, callback) {
       const body = new URLSearchParams({
-        client_id: INTERNAL_CONFIG.oauth.clientId,
-        client_secret: INTERNAL_CONFIG.oauth.clientSecret,
+        client_id: config.oauth.clientId,
+        client_secret: config.oauth.clientSecret,
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
       }).toString();
@@ -529,20 +514,20 @@ module.exports = (() => {
       });
     }
 
-    constructor(storage) {
+    constructor(storage, flowCompleted) {
       this.storage = storage;
       this.server = http.createServer((req, res) => {
         const { query } = url.parse(req.url, true);
-        console.log('can handle a request');
         if (query.code) {
           XUtil.log('Recieved authorization code.');
           OAuther.postAccessToken(query.code, (credentials) => {
             if (credentials.access_token && credentials.refresh_token) {
               XUtil.log('Exchanged authorization code for access and refresh tokens.');
-              this.storage.store(INTERNAL_CONFIG.storage.credentialsKey, credentials, true);
+              this.storage.store(config.storage.credentialsKey, credentials, true);
               res.writeHeader(HTTP_CODE_OK, { 'Content-Type': 'text/html' });
               res.write(SUCCESS_HTML());
               successToast('Google Drive connected!', { timeout: 5500 });
+              if (flowCompleted) flowCompleted();
             } else {
               XUtil.err('Failed to retrieve access and refresh tokens.');
               res.writeHeader(HTTP_CODE_INTERNAL_ERR, { 'Content-Type': 'text/html' });
@@ -568,7 +553,7 @@ module.exports = (() => {
         callback();
         return;
       }
-      const { port, host } = INTERNAL_CONFIG.oauth.handler;
+      const { port, host } = config.oauth.handler;
       this.server.listen(port, host, () => {
         XUtil.log(`Listening for OAuth redirects on http://${host}:${port}...`);
         if (callback) callback();
@@ -582,7 +567,7 @@ module.exports = (() => {
     }
 
     refresh(callback) {
-      const credentials = this.storage.load(INTERNAL_CONFIG.storage.credentialsKey, true);
+      const credentials = this.storage.load(config.storage.credentialsKey, true);
       const refreshToken = credentials.refresh_token;
       if (refreshToken) {
         OAuther.postRefreshAccessToken(refreshToken, (newCredentals) => {
@@ -607,7 +592,15 @@ module.exports = (() => {
   }
 
   /* ==========  Magic Upload Plugin ========== */
-  return class MagicUpload extends Plugin {
+  return class MagicUpload {
+    getName() { return config.meta.name; }
+
+    getAuthor() { return config.meta.authors.map((a) => a.name).join(', '); }
+
+    getDescription() { return config.meta.description; }
+
+    getVersion() { return config.meta.version; }
+
     openOAuthPrompt() {
       global.BdApi.showConfirmationModal('🔌 Connect your Google Drive', 'Magic Upload requires Google Drive. To use this plugin you must connect your Google account.', {
         confirmText: 'Connect Google Account',
@@ -636,14 +629,10 @@ module.exports = (() => {
     }
 
     /* ========== Plugin Lifecycle Methods ========== */
-    init() {
-      XUtil.log(this.getName(), 'This is a test');
+    load() {
       this.storage = new StorageHandler(this.getName());
-      this.oauther = new OAuther(this.storage);
+      this.oauther = new OAuther(this.storage, this.overrideDiscordUpload);
       this.uploader = new FileUploader(this.storage, this.oauther);
-
-      /* Plugin helper functions */
-      this.uploadLimit = () => moduleFileCheck.maxFileSize('', true); // Get real upload limit
     }
 
     overrideDiscordUpload() {
@@ -663,13 +652,15 @@ module.exports = (() => {
         const [originalArguments] = methodArguments;
         const { channelId, uploads, parsedMessage } = originalArguments;
         uploads.forEach((upload) => {
-          if (upload.item.file.size < this.uploadLimit()) {
+          const realUploadLimit = moduleFileCheck.maxFileSize('', true);
+          if (upload.item.file.size < realUploadLimit) {
             // File is within discord upload limit, upload as normal
+            XUtil.info(`File ${upload.item.file.name} is within discords upload limit. Process file as normal.`);
             const argsCopy = { ...originalArguments };
             argsCopy.uploads = [upload];
-            console.log(argsCopy);
             originalMethod.apply(thisObject, [argsCopy]);
           } else {
+            XUtil.info(`File ${upload.item.file.name} exceeds upload limit. Process file with ${config.meta.name}.`);
             const magicFile = convertFileToMagicFile(
               upload.item.file,
               channelId,
@@ -681,20 +672,18 @@ module.exports = (() => {
       });
     }
 
-    onStart() {
-      this.init();
+    start() {
+      XUtil.log('MagicUpload has started.');
       if (!this.storage.getAccessToken()) {
         // No token found. Prompt user to connect Google Drive.
         this.openOAuthPrompt();
       } else {
-        // OAuth has been enabled. Override upload methods.
         this.overrideDiscordUpload();
       }
-      console.log(this.uploadLimit());
     }
 
-    onStop() {
-      XUtil.log('MagicUpload has stopped...');
+    stop() {
+      XUtil.log('MagicUpload has stopped.');
       this.oauther.shutdownHandler();
       XUtil.clearOverrides();
     }
@@ -725,7 +714,7 @@ module.exports = (() => {
 
     getSettingsPanel() {
       const panel = this.buildSettingsPanel();
-      const credentials = this.storage.load(INTERNAL_CONFIG.storage.credentialsKey, true);
+      const credentials = this.storage.load(config.storage.credentialsKey, true);
 
       let settings;
       if (!credentials) {
@@ -819,7 +808,4 @@ module.exports = (() => {
       return panelHTML;
     }
   };
-};
-        return plugin(Plugin, Api);
-    })(global.ZeresPluginLibrary.buildPlugin(config));
 })();
