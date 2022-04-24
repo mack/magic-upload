@@ -9,4 +9,9 @@ This plugin uses Google Drive in the background. Users must connect their Google
 1) TBD
 
 ## Contributing
-1) `make build` 
+```
+build                          Build a minified bundled version of the plugin.
+install                        Copy release to BetterDiscord plugin directory.
+setup-tools                    Install tools used to build and hot reload plugin.
+watch                          Automatically build and install plugin on save.
+```

@@ -1,0 +1,23 @@
+{
+  "name": "magic-upload",
+  "version": "1.0.0",
+  "description": "A BetterDiscord plugin to automagically upload files over 8MB.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mack/magic-upload.git"
+  },
+  "author": "mack",
+  "bugs": {
+    "url": "https://github.com/mack/magic-upload/issues"
+  },
+  "homepage": "https://github.com/mack/magic-upload#readme",
+  "devDependencies": {
+    "eslint": "^8.14.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
+  }
+}
