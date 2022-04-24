@@ -4,7 +4,7 @@
  * @source
  */
 
- module.exports = (() => {
+module.exports = (() => {
   /* ========== Required Dependencies ========== */
   const http = require('http');
   const https = require('https');
@@ -637,7 +637,7 @@
 
     overrideDiscordUpload() {
       /* Patch upload methods */
-      XUtil.log('Patching Discord file modules.');
+      XUtil.log('Overriding default file upload functionality.');
       XUtil.override(moduleFileCheck, 'maxFileSize', ({ methodArguments, callOriginalMethod }) => {
         const useOriginal = methodArguments[1];
         if (useOriginal === true) {
@@ -655,12 +655,12 @@
           const realUploadLimit = moduleFileCheck.maxFileSize('', true);
           if (upload.item.file.size < realUploadLimit) {
             // File is within discord upload limit, upload as normal
-            XUtil.info(`File ${upload.item.file.name} is within discords upload limit. Process file as normal.`);
+            XUtil.info(`File "${upload.item.file.name}" is within discords upload limit, using default file uploader.`);
             const argsCopy = { ...originalArguments };
             argsCopy.uploads = [upload];
             originalMethod.apply(thisObject, [argsCopy]);
           } else {
-            XUtil.info(`File ${upload.item.file.name} exceeds upload limit. Process file with ${config.meta.name}.`);
+            XUtil.info(`File "${upload.item.file.name}" exceeds upload limit, using ${config.meta.name} uploader.`);
             const magicFile = convertFileToMagicFile(
               upload.item.file,
               channelId,
