@@ -16,9 +16,12 @@ module.exports = (() => {
   const moduleTextboxElement = global.BdApi.findModule((m) => m.defaultProps && m.defaultProps.type === 'text');
   const moduleModalActions = global.BdApi.findModuleByProps('useModalsStore', 'closeModal');
   const moduleAttachmentUpload = global.BdApi.findModule((m) => m.AttachmentUpload).AttachmentUpload;
-  const moduleMessageClasses = global.BdApi.findModule((m) => m.avatar && m.messageContent && m.alt);
-  const moduleMoreMessageClasses = global.BdApi.findModuleByProps('groupStart');
+  const moduleMessageClasses = {
+    ...global.BdApi.findModule((m) => m.avatar && m.messageContent && m.alt),
+    ...global.BdApi.findModuleByProps('groupStart'),
+  };
   const moduleMessageScrollerClasses = global.BdApi.findModuleByProps('scrollerSpacer');
+  const moduleDividerClasses = { ...global.BdApi.findModuleByProps('divider'), ...global.BdApi.findModuleByProps('dividerDefault') };
 
   /* ========== Global Constants & Internal Config ========== */
   const config = {
@@ -46,6 +49,7 @@ module.exports = (() => {
       iv: crypto.randomBytes(16),
       credentialsKey: '_magicupload_oa_creds_gd',
       uploadsKey: '_magicupload_files_inprogress',
+      uploadHistoryKey: '_magicupload_files_completed',
       settingsKey: '_magicupload_settings',
       defaultSettings: {
         autoUpload: true,
@@ -159,6 +163,12 @@ module.exports = (() => {
         window.magicUploadOverrides.forEach((cancel) => cancel());
       }
     },
+    prettifySize(size) {
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      if (size === 0) return '0 Byte';
+      const i = parseInt(Math.floor(Math.log(size) / Math.log(1024)), 10);
+      return `${Math.round(size / 1024 ** i, 2)} ${sizes[i]}`;
+    },
     truncate(str, n = 35) {
       return (str.length > n) ? `${str.substr(0, n - 1)}...` : str;
     },
@@ -206,7 +216,7 @@ module.exports = (() => {
       const messageWrapper = document.createElement('div');
 
       const message = document.createElement('div');
-      message.className = `${moduleMessageClasses.cozy} ${moduleMoreMessageClasses.groupStart} ${moduleMessageClasses.wrapper}`;
+      message.className = `${moduleMessageClasses.cozy} ${moduleMessageClasses.groupStart} ${moduleMessageClasses.wrapper}`;
 
       const avatar = document.createElement('img');
       avatar.src = avatarUrl;
@@ -360,6 +370,7 @@ module.exports = (() => {
                     this.unregisterUpload(streamLocation);
                     if (err === null) {
                       // Upload was successful, add permissions and share!
+                      this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
                       XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
                       this.share(driveItem.id, () => {
                         XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
@@ -447,7 +458,7 @@ module.exports = (() => {
 
       fs.open(file.path, 'r', (err, fd) => {
         if (err || !fd) {
-          callback(null, err);
+          callback(null, file, err);
         }
         const readNextChunk = (cursor) => {
           // Interupt a file from uploading if user cancels
@@ -457,7 +468,7 @@ module.exports = (() => {
           }
           fs.read(fd, buffer, 0, CHUNK_SIZE, cursor, (err, byteLength) => {
             if (err) {
-              callback(null, err);
+              callback(null, file, err);
             }
             let chunk;
             if (byteLength < CHUNK_SIZE) {
@@ -566,6 +577,7 @@ module.exports = (() => {
             this.unregisterUpload(streamLocation);
             if (err === null) {
               // Upload was successful, add permissions and share!
+              this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
               XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
               this.share(driveItem.id, () => {
                 XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
@@ -598,7 +610,14 @@ module.exports = (() => {
       this.pluginName = pluginName;
 
       /* Alias Functions */
-      const { credentialsKey, settingsKey, defaultSettings } = config.storage;
+      const {
+        credentialsKey,
+        uploadHistoryKey,
+        settingsKey,
+        defaultSettings,
+      } = config.storage;
+
+      // OAuth Helpers
       this.deleteCredentials = () => this.delete(credentialsKey);
       this.getAccessToken = () => {
         const credentials = this.load(credentialsKey, true);
@@ -610,6 +629,20 @@ module.exports = (() => {
         this.store(credentialsKey, credentials, true);
         return token;
       };
+
+      // FileUploader Helpers
+      this.getUploadHistory = () => this.load(uploadHistoryKey, false) || [];
+      this.patchUploadHistory = (completedUpload) => {
+        const uploadHistory = this.getUploadHistory();
+        uploadHistory.push(completedUpload);
+        this.store(uploadHistoryKey, uploadHistory, false);
+      };
+      this.clearUploadHistory = () => {
+        XUtil.log('Clearing upload history...');
+        this.store(uploadHistoryKey, [], false);
+      }
+
+      // Setting Helpers
       this.getSettings = () => this.load(settingsKey, false) || defaultSettings;
       this.saveSettings = (settings) => this.store(settingsKey, settings, false);
       this.patchSettings = (newSettings) => {
@@ -891,11 +924,16 @@ module.exports = (() => {
       this.uploader.cleanup();
     }
 
-    createSettingsCategory() {
+    createSettingsCategory(children) {
       const category = document.createElement('div');
-      category.style.color = '#b9bbbe';
-      category.style.fontSize = '16px';
-      category.style.lineHeight = '18px';
+      category.className = moduleDividerClasses.container;
+      category.appendChild(children);
+
+      const categoryDivider = document.createElement('div');
+      categoryDivider.className = `${moduleDividerClasses.divider} ${moduleDividerClasses.dividerDefault}`;
+      categoryDivider.style.borderTop = 'thin solid #4f545c7a';
+      categoryDivider.style.height = '1px';
+      category.appendChild(categoryDivider);
       return category;
     }
 
@@ -917,7 +955,7 @@ module.exports = (() => {
           });
         }
       }
-      const category = this.createSettingsCategory();
+      const switchContainer = document.createElement('div');
       const reactSwitch = global.BdApi.React.createElement(SwitchWrapper, {
         value: config.value,
         children: config.name,
@@ -925,8 +963,8 @@ module.exports = (() => {
         disabled: config.disabled,
         onChange: config.onChange,
       });
-      global.BdApi.ReactDOM.render(reactSwitch, category);
-      return category;
+      global.BdApi.ReactDOM.render(reactSwitch, switchContainer);
+      return switchContainer;
     }
 
     createButtonControl(config) {
@@ -958,6 +996,7 @@ module.exports = (() => {
         name.style.marginTop = '4px';
         name.style.color = 'white';
         name.style.fontSize = '16px';
+        name.style.fontWeight = '500';
         textBoxContainer.prepend(name);
       }
 
@@ -973,13 +1012,101 @@ module.exports = (() => {
       return textBoxContainer;
     }
 
+    createHistoryControl() {
+      const uploads = this.storage.getUploadHistory().sort((a, b) => (new Date(b.uploadedAt) - new Date(a.uploadedAt)));
+
+      const history = document.createElement('div');
+      const title = document.createElement('h1');
+      title.innerHTML = `Upload History (${uploads.length})`;
+      title.style.color = '#fff';
+      title.style.fontWeight = '500';
+      title.style.position = 'relative';
+      title.style.marginBottom = '0.5rem';
+      const clearHistoryButton = document.createElement('span');
+      clearHistoryButton.innerHTML = 'clear history';
+      clearHistoryButton.style.position = 'absolute';
+      clearHistoryButton.style.right = '4px';
+      clearHistoryButton.style.cursor = 'pointer';
+      clearHistoryButton.style.fontSize = '14px';
+      clearHistoryButton.style.opacity = '0.4';
+      clearHistoryButton.style.textTransform = 'uppercase';
+      clearHistoryButton.onclick = () => {
+        global.BdApi.showConfirmationModal(
+          'Are you sure?',
+          'This will remove all file upload history from the plugin. This will NOT delete any files from Google Drive.',
+          {
+            confirmText: 'Clear history',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+              this.storage.clearUploadHistory();
+              XUtil.successToast('Upload history cleared. Please refresh settings.');
+            },
+          },
+        );
+      };
+      title.appendChild(clearHistoryButton);
+      history.appendChild(title);
+
+      const historyList = document.createElement('ol');
+      historyList.style.maxHeight = '200px';
+      historyList.style.backgroundColor = '#2b2e31';
+      historyList.style.overflow = 'scroll';
+      historyList.style.borderRadius = '6px';
+      historyList.style.padding = '0.75rem';
+
+      if (uploads.length > 0) {
+        uploads.forEach((upload) => {
+          const historyItem = document.createElement('li');
+          historyItem.onmouseover = () => { historyItem.style.backgroundColor = '#41444a'; };
+          historyItem.onmouseout = () => { historyItem.style.backgroundColor = 'transparent'; };
+          historyItem.style.paddingTop = '1rem';
+          historyItem.style.paddingLeft = '0.75rem';
+          historyItem.style.paddingRight = '0.75rem';
+          historyItem.style.borderRadius = '4px';
+          historyItem.style.paddingBottom = '1rem';
+          historyItem.style.display = 'flex';
+          historyItem.style.justifyContent = 'space-between';
+          historyItem.style.cursor = 'pointer';
+          historyItem.onclick = () => window.open(XUtil.driveLink(upload.driveItem.id));
+
+          const historyFileName = document.createElement('span');
+          historyFileName.style.fontWeight = '500';
+          historyFileName.innerHTML = `${XUtil.truncate(upload.file.name)}`;
+          historyItem.appendChild(historyFileName);
+          const historyFileSize = document.createElement('span');
+          historyFileSize.style.fontSize = '14px';
+          historyFileSize.innerHTML = `${XUtil.prettifySize(upload.file.size)}`;
+          historyItem.appendChild(historyFileSize);
+
+          historyList.appendChild(historyItem);
+        });
+      } else {
+        const noUploadHistory = document.createElement('div');
+        noUploadHistory.style.height = '60px';
+        noUploadHistory.style.fontSize = '15px';
+        noUploadHistory.style.opacity = '0.4';
+        noUploadHistory.style.display = 'flex';
+        noUploadHistory.style.justifyContent = 'center';
+        noUploadHistory.style.alignItems = 'center';
+        noUploadHistory.innerHTML = 'You haven\'t uploaded any files yet...';
+        historyList.appendChild(noUploadHistory);
+      }
+      history.appendChild(historyList);
+
+      return history;
+    }
+
     getSettingsPanel() {
       const credentials = this.storage.load(config.storage.credentialsKey, true);
 
       const settings = document.createElement('div');
+      settings.style.color = '#b9bbbe';
+      settings.style.fontSize = '16px';
+      settings.style.lineHeight = '18px';
+
       if (!credentials) {
         /* No OAuth Setting UI */
-        const category = this.createSettingsCategory();
+        // const category = this.createSettingsCategory();
 
         const label = document.createElement('div');
         label.style.lineHeight = '20px';
@@ -987,17 +1114,15 @@ module.exports = (() => {
         label.style.marginBottom = '1rem';
         label.innerHTML = `🔌 Hello! It looks like you haven't given access to your Google Drive. 
           This plugin <i>requires</i> you to sign in with Google in order to function.`;
-        category.appendChild(label);
+        settings.appendChild(label);
 
-        category.appendChild(this.createButtonControl({
+        settings.appendChild(this.createButtonControl({
           name: 'Connect Google Drive',
           onClick: () => {
             this.oauther.launch();
             XUtil.closeLastModal();
           },
         }));
-
-        settings.appendChild(category);
       } else {
         /* No OAuth Setting UI */
         [
@@ -1008,13 +1133,13 @@ module.exports = (() => {
             disabled: false,
             onChange: (e) => { this.storage.patchSettings({ autoUpload: e }); },
           },
-          {
-            name: 'Rich embed',
-            note: 'Attempt to display an embedded preview of content from google drive links.',
-            value: this.storage.getSettings().embed,
-            disabled: false,
-            onChange: (e) => { this.storage.patchSettings({ embed: e }); },
-          },
+          // {
+          //   name: 'Rich embed',
+          //   note: 'Attempt to display an embedded preview of content from google drive links.',
+          //   value: this.storage.getSettings().embed,
+          //   disabled: false,
+          //   onChange: (e) => { this.storage.patchSettings({ embed: e }); },
+          // },
           {
             name: 'Upload Everything',
             note: 'Use Google Drive for all files, including ones within discords upload limit.',
@@ -1030,6 +1155,7 @@ module.exports = (() => {
             disabled: false,
             onChange: (e) => { this.storage.patchSettings({ directLink: e }); },
           },
+          // This should be in an advanced tab in future
           {
             name: 'Verbose logs',
             note: 'Display verbose console logs. Useful for debugging.',
@@ -1041,6 +1167,10 @@ module.exports = (() => {
           this.createSwitchControl(switchControl),
         ));
 
+        const historyControl = this.createSettingsCategory(this.createHistoryControl());
+        settings.appendChild(historyControl);
+
+        // This should be in an advanced tab in future
         settings.appendChild(this.createTextBoxControl({
           name: 'Google Drive refresh token',
           value: credentials.access_token,
