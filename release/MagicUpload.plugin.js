@@ -12,11 +12,20 @@ module.exports = (() => {
   const crypto = require('crypto');
   const fs = require('fs');
 
+  const moduleDispatcher = global.BdApi.findModuleByProps('dirtyDispatch');
   const moduleFileCheck = global.BdApi.findModuleByProps('anyFileTooLarge', 'maxFileSize');
   const moduleFileUpload = global.BdApi.findModuleByProps('instantBatchUpload', 'upload');
   const moduleMessageActions = global.BdApi.findModuleByProps('sendMessage');
   const moduleButtonElement = global.BdApi.findModuleByProps('BorderColors');
   const moduleModalActions = global.BdApi.findModuleByProps('useModalsStore', 'closeModal');
+  const moduleAttachmentUpload = global.BdApi.findAllModules(
+    (m) => m.AttachmentUpload,
+  )[0].AttachmentUpload;
+  const moduleMessageClasses = global.BdApi.findAllModules(
+    (m) => m.avatar && m.messageContent && m.alt,
+  )[0];
+  const moduleMoreMessageClasses = global.BdApi.findModuleByProps('groupStart');
+  const moduleMessageScrollerClasses = global.BdApi.findModuleByProps('scrollerSpacer');
 
   /* ========== Global Constants & Internal Config ========== */
   const config = {
@@ -67,15 +76,6 @@ module.exports = (() => {
   const ERROR_HTML = (props) => `<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Error</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } h1 { font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .error, .header > i { color: rgb(229, 45, 45); text-shadow: 0 8px 24px rgb(229 45 45 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } .error_container { max-width: 100%; position: relative; } .error_container:hover .error_label { opacity: 0.3; } .error_code { font-size: 14px; background-color: rgba(0,0,0,0.92); border-radius: 6px; padding-top: 2rem; padding-bottom: 2rem; padding-right: 2rem; padding-left: 2rem; color: white; text-align: left; word-wrap: break-word; font-family: 'Roboto Mono', monospace; } .error_label { transition: .3s; cursor: default; font-size: 12px; text-transform: uppercase; opacity: 0; color: white; position: absolute; right: 2rem; top: 1rem; } </style> <div class="container"> <h1 class="header"><i class="fa-solid fa-triangle-exclamation"></i> Uh oh, something went <span class="error">wrong</span> <i class="fa-solid fa-triangle-exclamation"></i></h1> <hr> <p class="about">We weren&#39;t able to connect your Google Drive account with MagicUpload. Please try again or reach out to help in our community discord. </p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <div class="error_container"> <span class="error_label">OAuth Response // JSON</span> <div class="error_code"> ${props.error_message} </div> </div> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".error_code", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); </script> </body></html>`;
 
   /* ========== Miscellaneous Helper Functions ========== */
-  const optionsWithAuth = (options, storage) => {
-    const modifiedOptions = options;
-    const accessToken = storage.getAccessToken();
-    if (accessToken) {
-      modifiedOptions.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
-    }
-    return options;
-  };
-
   const truncate = (str, n) => ((str.length > n) ? `${str.substr(0, n - 1)}...` : str);
   const getDriveLink = (driveId) => `https://drive.google.com/file/d/${driveId}`;
   const getDirectDriveLink = (driveId) => `https://drive.google.com/uc?export=download&id=${driveId}`;
@@ -109,6 +109,95 @@ module.exports = (() => {
   const warnToast = (content, overrides) => global.BdApi.showToast(content, { type: 'warning', ...overrides });
   const errorToast = (content, overrides) => global.BdApi.showToast(content, { type: 'error', ...overrides });
 
+  class Message {
+    constructor(messageContent, channelId, timestamp, name, avatarUrl) {
+      this.channelId = channelId;
+      const messageContainer = document.createElement('li');
+      const messageWrapper = document.createElement('div');
+
+      const message = document.createElement('div');
+      message.className = `${moduleMessageClasses.cozy} ${moduleMoreMessageClasses.groupStart} ${moduleMessageClasses.wrapper}`;
+
+      const avatar = document.createElement('img');
+      avatar.src = avatarUrl;
+      avatar.className = moduleMessageClasses.avatar;
+      message.appendChild(avatar);
+
+      const header = document.createElement('h2');
+      const username = document.createElement('span');
+      username.innerHTML = name;
+      username.className = `${moduleMessageClasses.headerText} ${moduleMessageClasses.username}`;
+      header.appendChild(username);
+
+      const time = document.createElement('span');
+      time.className = `${moduleMessageClasses.timestamp} ${moduleMessageClasses.timestampInline}`;
+      time.innerHTML = timestamp;
+      header.appendChild(time);
+
+      message.appendChild(header);
+
+      if (messageContent instanceof HTMLElement) {
+        message.appendChild(messageContent);
+      } else {
+        message.innerText += messageContent;
+      }
+
+      messageWrapper.appendChild(message);
+      messageContainer.appendChild(messageWrapper);
+      this.messageContainer = messageContainer;
+    }
+
+    element() {
+      return this.messageContainer;
+    }
+
+    destination() {
+      return this.channelId;
+    }
+
+    show() {
+      const scrollerInner = document.querySelector(`.${moduleMessageScrollerClasses.scrollerInner}`);
+      const scrollerSpacer = document.querySelector(`.${moduleMessageScrollerClasses.scrollerSpacer}`);
+
+      console.log(scrollerInner);
+      if (scrollerInner) scrollerInner.insertBefore(this.messageContainer, scrollerSpacer);
+    }
+
+    destroy() {
+      if (this.messageContainer) {
+        this.messageContainer.remove();
+      }
+    }
+  }
+
+  class UploadAttachment extends Message {
+    constructor(destination, fileName, fileSize, initalProgress, onCancelUpload) {
+      const container = document.createElement('div');
+      const attachment = global.BdApi.React.createElement(moduleAttachmentUpload, {
+        filename: fileName,
+        size: fileSize,
+        progress: initalProgress,
+        onCancelUpload,
+      });
+      global.BdApi.ReactDOM.render(attachment, container);
+      super(container, destination, 'Upload via MagicUpload', 'Mack', 'https://cdn.discordapp.com/avatars/365247132375973889/21de00407bd97f7077c32f83558a997c.webp?size=160');
+      this.attachment = attachment;
+      this.container = container;
+    }
+
+    setProgress(progress) {
+      const newProgress = Math.min(Math.max(progress, 0), 100);
+      this.attachment.props.progress = newProgress;
+      const progressBarClass = this.container.innerHTML.match(/class="(progressBar-[^\s"]*)/)[1];
+      const progressBar = this.container.querySelector(`.${progressBarClass}`);
+      progressBar.style.transform = `translate3d(-${100 - this.attachment.props.progress}%, 0px, 0px)`;
+    }
+
+    progress() {
+      return this.attachment.props.progress;
+    }
+  }
+
   class XUtil {
     static log(...message) {
       XUtil.console(message, 'log');
@@ -140,6 +229,15 @@ module.exports = (() => {
       let parsedMessage = message;
       if (!Array.isArray(message)) parsedMessage = [parsedMessage];
       console[parsedType](`%c[${config.meta.name}]%c`, 'color: #3a71c1; font-weight: 700;', '', ...parsedMessage);
+    }
+
+    static optionsWithAuth(options, storage) {
+      const modifiedOptions = options;
+      const accessToken = storage.getAccessToken();
+      if (accessToken) {
+        modifiedOptions.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
+      }
+      return options;
     }
 
     static encrypt(plain) {
@@ -178,7 +276,8 @@ module.exports = (() => {
 
   /* ========== File Uploader ========== */
   class FileUploader {
-    static sendUploadMessage(file, link) {
+    static sendFileLinkMessage(file, link) {
+      XUtil.log(`Sending file share link to channel: ${file.mu_destination}.`);
       const formattedMessage = file.mu_content !== '' ? `${file.mu_content}\n${link}` : link;
       moduleMessageActions.sendMessage(
         file.mu_destination,
@@ -192,7 +291,33 @@ module.exports = (() => {
     constructor(storage, oauther) {
       this.storage = storage;
       this.oauther = oauther;
+      this.uploadAttachments = {};
+      this.handleChannelSelect = (e) => this.checkForAttachments(e.channelId);
+      moduleDispatcher.subscribe('CHANNEL_SELECT', this.handleChannelSelect);
       this.continue();
+    }
+
+    cleanup() {
+      moduleDispatcher.unsubscribe('CHANNEL_SELECT', this.handleChannelSelect);
+    }
+
+    checkForAttachments(channelId) {
+      Object.keys(this.uploadAttachments).forEach((streamLocation) => {
+        if (this.uploadAttachments[streamLocation].destination() === channelId) {
+          // Add slight delay to account for DOM loading.
+          setTimeout(() => {
+            this.uploadAttachments[streamLocation].show();
+          }, 200);
+        }
+      });
+    }
+
+    cancelFileHandler(streamLocation) {
+      // maybe use this.cancelQueue = {} and check for any values while uploading.
+      // cancel if we find our stream location there
+      return () => {
+        //
+      };
     }
 
     continue() {
@@ -214,10 +339,21 @@ module.exports = (() => {
                   streamLocation,
                   registeredUploads[streamLocation],
                   cursor,
-                  (data) => {
-                  // Upload has finished
-                  // Data has ID for file in google drive
+                  (driveItem, file, err) => {
+                    // Completed upload. Remove from registry and
+                    // handle successful and unsuccessful completed uploads.
                     this.unregisterUpload(streamLocation);
+                    if (err === null) {
+                      // Upload was successful, add permissions and share!
+                      XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
+                      this.share(driveItem.id, () => {
+                        XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
+                        FileUploader.sendFileLinkMessage(file, getDriveLink(driveItem.id));
+                      });
+                    } else {
+                      XUtil.err('Upload has failed.');
+                      errorToast(`Upload failed ${truncate(file.name, 35)}`);
+                    }
                   },
                 );
                 break;
@@ -256,7 +392,7 @@ module.exports = (() => {
     }
 
     getStreamStatus(streamLocation, callback) {
-      const options = optionsWithAuth({
+      const options = XUtil.optionsWithAuth({
         method: 'PUT',
         headers: {
           'Content-Length': 0,
@@ -269,6 +405,20 @@ module.exports = (() => {
     }
 
     streamChunks(streamLocation, file, from, callback) {
+      // Check to see if there is an existing message attachment.
+      // If none, create a new one.
+      if (!this.uploadAttachments[streamLocation]) {
+        this.uploadAttachments[streamLocation] = new UploadAttachment(
+          file.mu_destination,
+          file.name,
+          file.size,
+          0,
+          this.cancelFileHandler(file),
+        );
+        this.uploadAttachments[streamLocation].show();
+      }
+
+      const { uploadAttachments } = this;
       const accessToken = this.storage.getAccessToken();
       // const unregisterUpload = this.storage.unregisterUpload;
       const CHUNK_SIZE = config.upload.chunkMultiplier * 256 * 1024;
@@ -311,6 +461,7 @@ module.exports = (() => {
               },
             };
             XUtil.info(`[${((start / total) * 100).toFixed(2)}%] Uploading ${file.name} (${start}/${total})`);
+            uploadAttachments[streamLocation].setProgress((start / total) * 100);
             // Fetch unfortunately does handle Buffer objects well
             // so we're forced to use `https` to process our requests
             const uploadChunk = https.request(options, (res) => {
@@ -326,8 +477,10 @@ module.exports = (() => {
                 res.on('data', (chunk) => { responseData += chunk; });
                 res.on('close', () => {
                   fs.close(fd, () => {
+                    uploadAttachments[streamLocation].destroy();
+                    delete uploadAttachments[streamLocation];
                     successToast(`Successfully uploaded ${truncate(file.name, 35)}`);
-                    callback(JSON.parse(responseData), null);
+                    callback(JSON.parse(responseData), file, null);
                   });
                 });
               }
@@ -345,7 +498,7 @@ module.exports = (() => {
         role: DRIVE_READ_ROLE,
         type: DRIVE_ANYONE_GRANTEE,
       };
-      const options = optionsWithAuth({
+      const options = XUtil.optionsWithAuth({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
@@ -370,7 +523,7 @@ module.exports = (() => {
         name: file.name,
         mimeType: file.type,
       };
-      const options = optionsWithAuth({
+      const options = XUtil.optionsWithAuth({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
@@ -384,7 +537,7 @@ module.exports = (() => {
           const streamLocation = response.headers.get('Location');
           // Forced to copy the file reference.
           this.registerUpload(streamLocation, file);
-          this.streamChunks(streamLocation, file, 0, (driveItem, err) => {
+          this.streamChunks(streamLocation, file, 0, (driveItem, file, err) => {
             // Completed upload. Remove from registry and
             // handle successful and unsuccessful completed uploads.
             this.unregisterUpload(streamLocation);
@@ -393,7 +546,7 @@ module.exports = (() => {
               XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
               this.share(driveItem.id, () => {
                 XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
-                FileUploader.sendUploadMessage(file, getDriveLink(driveItem.id));
+                FileUploader.sendFileLinkMessage(file, getDriveLink(driveItem.id));
               });
             } else {
               XUtil.err('Upload has failed.');
@@ -535,7 +688,7 @@ module.exports = (() => {
               errorToast('An error occured connecting Google Drive', { timeout: 5500 });
             }
             res.end();
-            this.shutdownHandler();
+            this.cleanup();
           });
         }
       });
@@ -560,7 +713,7 @@ module.exports = (() => {
       });
     }
 
-    shutdownHandler(callback) {
+    cleanup(callback) {
       if (this.server.listening) {
         this.server.close(callback);
       }
@@ -684,128 +837,36 @@ module.exports = (() => {
 
     stop() {
       XUtil.log('MagicUpload has stopped.');
-      this.oauther.shutdownHandler();
       XUtil.clearOverrides();
-    }
-
-    buildSetting(data) {
-      /*
-      class Button extends ZLibrary.Settings.SettingField {
-        constructor(name, note, value, onClick) {
-          const style = {
-            display: 'flex',
-            // justifyContent: 'flex-end'
-          };
-          const _reactButton = BdApi.React.createElement(moduleButtonElement, { onClick }, value);
-
-          super(name, note, _, (props) =>
-            BdApi.React.createElement('div', { ...props, style }, _reactButton), {});
-        }
-      }
-      const {
-        name, note, type, value, onClick,
-      } = data;
-      if (type === 'button') {
-        return new Button(name, note, value, onClick);
-      }
-      */
-      return super.buildSetting(data);
+      this.oauther.cleanup();
+      this.uploader.cleanup();
     }
 
     getSettingsPanel() {
-      const panel = this.buildSettingsPanel();
       const credentials = this.storage.load(config.storage.credentialsKey, true);
-
-      let settings;
-      if (!credentials) {
+      const ua = new UploadAttachment('someFileName', 23, 0, () => { ua.setProgress(ua.progress() + 5); });
+      const settings = document.createElement('div');
+      if (credentials) {
+        // console.log("SETINGINSINGG")
         /* No OAuth Setting UI */
-        settings = {
-          description: `🔌 Hello! It looks like you haven't given access to your Google Drive. 
-                      This plugin <i>requires</i> you to sign in with Google in order to function.`,
-          controls: [
-            {
-              type: 'button',
-              value: 'Connect Google Account',
-              onClick: () => {
-                this.oauther.launch();
-                closeLastModal();
-              },
-            },
-          ],
-        };
+        // const header = document.createElement('h1');
+        // const onClick = () => {console.log("CLICKED")};
+        // const reactButton = global.BdApi.React.createElement(attach, {
+        //   children: 'this.name',
+        //   note: 'this.note',
+        //   value: 'this.value',
+        // });
+        // global.BdApi.ReactDOM.render(reactButton, test);
+        // header.innerHTML = "This is a header";
+        // settings.appendChild(header);
       } else {
         /* Default Setting UI */
-        settings = {
-          controls: [
-            {
-              type: 'switch',
-              id: 'automatic_file_upload',
-              name: 'Automatic file uploading',
-              note: 'Do not prompt me when uploading files that exceed the upload limit.',
-              value: true,
-              onChange: (val) => console.log('CHANGINGINSDGINGING'),
-            },
-            {
-              type: 'switch',
-              id: 'rich_embed',
-              name: 'Google Drive embeds',
-              note: 'Attempt to display an embedded preview of content from google drive links.',
-              value: true,
-              onChange: (val) => console.log('CHANGINGINSDGINGING'),
-            },
-            {
-              type: 'switch',
-              id: 'verbose',
-              name: 'Verbose Logs',
-              note: 'Display verbose console logs. Useful for debugging.',
-              value: false,
-              onChange: (val) => console.log('CHANGINGINSDGINGING'),
-            },
-            {
-              type: 'textbox',
-              id: 'access_token',
-              name: 'Google Drive access token',
-              note: 'This value is immutable.',
-              value: credentials ? credentials.access_token : '',
-            },
-            {
-              type: 'textbox',
-              id: 'refresh_token',
-              name: 'Google Drive refresh token',
-              note: 'This value is immutable.',
-              value: credentials ? credentials.refresh_token : '',
-            },
-            {
-              type: 'button',
-              value: 'Unlink Google Drive',
-              onClick: () => {
-                OAuther.postRevokeToken(credentials.refresh_token);
-                this.storage.deleteCredentials();
-                infoToast('Google Drive has been unlinked.', { timeout: 5500 });
-                closeLastModal();
-              },
-            },
-          ],
-        };
+        const header = document.createElement('h1');
+        header.innerHTML = 'This is a header';
+        settings.appendChild(header);
       }
 
-      settings.controls.forEach((control) => panel.append(this.buildSetting(control)));
-
-      const panelHTML = panel.getElement();
-      if (settings.description) {
-        const description = document.createElement('p');
-        description.style = `
-                  color: rgb(185, 187, 190);
-                  font-size: 16px;
-                  line-height: 18px;
-                  margin-top: 0;
-                  margin-bottom: 0.85rem;
-              `;
-        description.innerHTML = settings.description;
-        panelHTML.prepend(description);
-      }
-
-      return panelHTML;
+      return ua.element();
     }
   };
 })();
