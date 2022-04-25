@@ -86,7 +86,10 @@ module.exports = (() => {
 
   const XUtil = {
     log(...message) {
-      if (global.BdApi.loadData(config.meta.name, config.storage.settingsKey).verbose) {
+      // Forced to get settings manually here.
+      // Code should be refactored in the future to use getSettings()
+      const settings = global.BdApi.loadData(config.meta.name, config.storage.settingsKey) || {};
+      if (settings.verbose) {
         XUtil.console(message, 'log');
       }
     },
@@ -781,6 +784,7 @@ module.exports = (() => {
         callback();
         return;
       }
+
       const { port, host } = config.oauth.handler;
       this.server.listen(port, host, () => {
         XUtil.log(`Listening for OAuth redirects on http://${host}:${port}...`);
