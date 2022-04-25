@@ -13,6 +13,7 @@ module.exports = (() => {
   const fs = require('fs');
 
   const moduleDispatcher = global.BdApi.findModuleByProps('dirtyDispatch');
+  const moduleUserActions = global.BdApi.findModuleByProps('getCurrentUser');
   const moduleFileCheck = global.BdApi.findModuleByProps('anyFileTooLarge', 'maxFileSize');
   const moduleFileUpload = global.BdApi.findModuleByProps('instantBatchUpload', 'upload');
   const moduleMessageActions = global.BdApi.findModuleByProps('sendMessage');
@@ -72,6 +73,7 @@ module.exports = (() => {
   const GOOGLE_DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
   const DRIVE_READ_ROLE = 'reader';
   const DRIVE_ANYONE_GRANTEE = 'anyone';
+  const UPLOAD_CANCELLED = 'upload_cancelled';
   const SUCCESS_HTML = () => '<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Google Drive Connected</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } .header img { width: 80px; } .header { display: flex; align-items: center; font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } .header i { font-size: 18px; margin: 0 0.5rem; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .magic { color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } </style> <div class="container"> <h1 class="header"><span class="magic">MagicUpload</span> <i class="fa-solid fa-link"></i> <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" /></h1> <hr> <p class="about">✅ You"ve successfully linked your Google Drive account! You can now upload files that exceed your discord limit and they"ll automatically uploaded to your drive.</p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); const jsConfetti = new JSConfetti(); setTimeout(() => { jsConfetti.addConfetti() }, 2000); </script> </body></html>';
   const ERROR_HTML = (props) => `<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Error</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } h1 { font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .error, .header > i { color: rgb(229, 45, 45); text-shadow: 0 8px 24px rgb(229 45 45 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } .error_container { max-width: 100%; position: relative; } .error_container:hover .error_label { opacity: 0.3; } .error_code { font-size: 14px; background-color: rgba(0,0,0,0.92); border-radius: 6px; padding-top: 2rem; padding-bottom: 2rem; padding-right: 2rem; padding-left: 2rem; color: white; text-align: left; word-wrap: break-word; font-family: 'Roboto Mono', monospace; } .error_label { transition: .3s; cursor: default; font-size: 12px; text-transform: uppercase; opacity: 0; color: white; position: absolute; right: 2rem; top: 1rem; } </style> <div class="container"> <h1 class="header"><i class="fa-solid fa-triangle-exclamation"></i> Uh oh, something went <span class="error">wrong</span> <i class="fa-solid fa-triangle-exclamation"></i></h1> <hr> <p class="about">We weren&#39;t able to connect your Google Drive account with MagicUpload. Please try again or reach out to help in our community discord. </p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <div class="error_container"> <span class="error_label">OAuth Response // JSON</span> <div class="error_code"> ${props.error_message} </div> </div> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".error_code", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); </script> </body></html>`;
 
@@ -79,6 +81,7 @@ module.exports = (() => {
   const truncate = (str, n) => ((str.length > n) ? `${str.substr(0, n - 1)}...` : str);
   const getDriveLink = (driveId) => `https://drive.google.com/file/d/${driveId}`;
   const getDirectDriveLink = (driveId) => `https://drive.google.com/uc?export=download&id=${driveId}`;
+  const getDiscordAvatarLink = (userId, avatarId) => `https://cdn.discordapp.com/avatars/${userId}/${avatarId}.webp?size=160`;
   const convertFileToMagicFile = (file, destination, content) => ({
     lastModified: file.lastModified,
     lastModifiedDate: file.lastModifiedDate,
@@ -180,7 +183,8 @@ module.exports = (() => {
         onCancelUpload,
       });
       global.BdApi.ReactDOM.render(attachment, container);
-      super(container, destination, 'Upload via MagicUpload', 'Mack', 'https://cdn.discordapp.com/avatars/365247132375973889/21de00407bd97f7077c32f83558a997c.webp?size=160');
+      const user = moduleUserActions.getCurrentUser();
+      super(container, destination, 'Powered by MagicUpload', user.username, getDiscordAvatarLink(user.id, user.avatar));
       this.attachment = attachment;
       this.container = container;
     }
@@ -292,6 +296,7 @@ module.exports = (() => {
       this.storage = storage;
       this.oauther = oauther;
       this.uploadAttachments = {};
+      this.cancelationQueue = {};
       this.handleChannelSelect = (e) => this.checkForAttachments(e.channelId);
       moduleDispatcher.subscribe('CHANNEL_SELECT', this.handleChannelSelect);
       this.continue();
@@ -313,10 +318,8 @@ module.exports = (() => {
     }
 
     cancelFileHandler(streamLocation) {
-      // maybe use this.cancelQueue = {} and check for any values while uploading.
-      // cancel if we find our stream location there
       return () => {
-        //
+        this.cancelationQueue[streamLocation] = true;
       };
     }
 
@@ -342,6 +345,8 @@ module.exports = (() => {
                   (driveItem, file, err) => {
                     // Completed upload. Remove from registry and
                     // handle successful and unsuccessful completed uploads.
+                    this.uploadAttachments[streamLocation].destroy();
+                    delete this.uploadAttachments[streamLocation];
                     this.unregisterUpload(streamLocation);
                     if (err === null) {
                       // Upload was successful, add permissions and share!
@@ -350,6 +355,9 @@ module.exports = (() => {
                         XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
                         FileUploader.sendFileLinkMessage(file, getDriveLink(driveItem.id));
                       });
+                    } if (err.message && err.message === UPLOAD_CANCELLED) {
+                      XUtil.warn('Upload has been cancelled.');
+                      infoToast(`Upload ${truncate(file.name, 35)} has been cancelled`);
                     } else {
                       XUtil.err('Upload has failed.');
                       errorToast(`Upload failed ${truncate(file.name, 35)}`);
@@ -413,12 +421,12 @@ module.exports = (() => {
           file.name,
           file.size,
           0,
-          this.cancelFileHandler(file),
+          this.cancelFileHandler(streamLocation),
         );
         this.uploadAttachments[streamLocation].show();
       }
 
-      const { uploadAttachments } = this;
+      const { uploadAttachments, cancelationQueue } = this;
       const accessToken = this.storage.getAccessToken();
       // const unregisterUpload = this.storage.unregisterUpload;
       const CHUNK_SIZE = config.upload.chunkMultiplier * 256 * 1024;
@@ -430,6 +438,11 @@ module.exports = (() => {
           callback(null, err);
         }
         const readNextChunk = (cursor) => {
+          // Interupt a file from uploading if user cancels
+          if (cancelationQueue[streamLocation]) {
+            callback(null, file, new Error(UPLOAD_CANCELLED));
+            return;
+          }
           fs.read(fd, buffer, 0, CHUNK_SIZE, cursor, (err, byteLength) => {
             if (err) {
               callback(null, err);
@@ -477,8 +490,6 @@ module.exports = (() => {
                 res.on('data', (chunk) => { responseData += chunk; });
                 res.on('close', () => {
                   fs.close(fd, () => {
-                    uploadAttachments[streamLocation].destroy();
-                    delete uploadAttachments[streamLocation];
                     successToast(`Successfully uploaded ${truncate(file.name, 35)}`);
                     callback(JSON.parse(responseData), file, null);
                   });
@@ -540,6 +551,8 @@ module.exports = (() => {
           this.streamChunks(streamLocation, file, 0, (driveItem, file, err) => {
             // Completed upload. Remove from registry and
             // handle successful and unsuccessful completed uploads.
+            this.uploadAttachments[streamLocation].destroy();
+            delete this.uploadAttachments[streamLocation];
             this.unregisterUpload(streamLocation);
             if (err === null) {
               // Upload was successful, add permissions and share!
@@ -548,6 +561,9 @@ module.exports = (() => {
                 XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
                 FileUploader.sendFileLinkMessage(file, getDriveLink(driveItem.id));
               });
+            } if (err.message && err.message === UPLOAD_CANCELLED) {
+              XUtil.warn('Upload has been cancelled.');
+              infoToast(`Upload ${truncate(file.name, 35)} has been cancelled`);
             } else {
               XUtil.err('Upload has failed.');
               errorToast(`Upload failed ${truncate(file.name, 35)}`);
