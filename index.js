@@ -61,7 +61,7 @@ module.exports = (() => {
         autoUpload: true,
         uploadEverything: false,
         embed: true,
-        directLink: false,
+        directLink: true,
         verbose: false,
       },
     },
@@ -576,7 +576,9 @@ module.exports = (() => {
               XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
               this.share(driveItem.id, () => {
                 XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
-                FileUploader.sendFileLinkMessage(file, XUtil.driveLink(driveItem.id));
+                const shareLink = this.storage.getSettings().directLink
+                  ? XUtil.directDriveLink(driveItem.id) : XUtil.driveLink(driveItem.id);
+                FileUploader.sendFileLinkMessage(file, shareLink);
               });
             } else if (err.message && err.message === UPLOAD_CANCELLED) {
               XUtil.warn('Upload has been cancelled.');
@@ -848,7 +850,7 @@ module.exports = (() => {
         const { channelId, uploads, parsedMessage } = originalArguments;
         uploads.forEach((upload) => {
           const realUploadLimit = moduleFileCheck.maxFileSize('', true);
-          if (this.storage.getSettings().uploadEverything
+          if (!this.storage.getSettings().uploadEverything
             && upload.item.file.size < realUploadLimit) {
             // File is within discord upload limit, upload as normal
             XUtil.info(`File "${upload.item.file.name}" is within discords upload limit, using default file uploader.`);
