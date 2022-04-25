@@ -465,7 +465,7 @@ module.exports = (() => {
       const buffer = Buffer.alloc(CHUNK_SIZE);
 
       fs.open(file.path, 'r', (err, fd) => {
-        if (err || !fd) {
+        if (err || !fd || typeof fd !== 'number') {
           callback(null, file, err);
         }
         const readNextChunk = (cursor) => {
@@ -744,7 +744,7 @@ module.exports = (() => {
       });
     }
 
-    constructor(storage, flowCompleted) {
+    constructor(storage, flowCompleted, originalThis) {
       this.storage = storage;
       this.server = http.createServer((req, res) => {
         const { query } = url.parse(req.url, true);
@@ -758,7 +758,7 @@ module.exports = (() => {
               res.write(SUCCESS_HTML());
               XUtil.successToast('Google Drive connected!', { timeout: 5500 });
               XUtil.info('Google Drive successfully linked.');
-              if (flowCompleted) flowCompleted();
+              if (flowCompleted) flowCompleted(originalThis);
             } else {
               XUtil.err('Failed to retrieve access and refresh tokens.');
               res.writeHeader(HTTP_CODE_INTERNAL_ERR, { 'Content-Type': 'text/html' });
@@ -869,14 +869,13 @@ module.exports = (() => {
     /* ========== Plugin Lifecycle Methods ========== */
     load() {
       this.storage = new StorageHandler(this.getName());
-      this.oauther = new OAuther(this.storage, this.overrideDiscordUpload);
+      this.oauther = new OAuther(this.storage, this.overrideDiscordUpload, this);
       this.uploader = new FileUploader(this.storage, this.oauther);
-      this.realUploadLimit = moduleFileCheck.maxFileSize('', true);
     }
 
-    overrideDiscordUpload() {
+    overrideDiscordUpload(originalThis) {
       /* Patch upload methods */
-      const { realUploadLimit, storage, uploader } = this;
+      const { realUploadLimit, storage, uploader } = originalThis;
       XUtil.log('Overriding default file upload functionality.');
       XUtil.override(moduleFileCheck, 'maxFileSize', ({ methodArguments, callOriginalMethod }) => {
         const useOriginal = methodArguments[1];
@@ -918,11 +917,12 @@ module.exports = (() => {
 
     start() {
       XUtil.info('MagicUpload has started.');
+      this.realUploadLimit = moduleFileCheck.maxFileSize('', true);
       if (!this.storage.getAccessToken()) {
         // No token found. Prompt user to connect Google Drive.
         this.openOAuthPrompt();
       } else {
-        this.overrideDiscordUpload();
+        this.overrideDiscordUpload(this);
       }
     }
 

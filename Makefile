@@ -28,3 +28,7 @@ setup: ## Install tools used to build and hot reload plugin.
 .PHONY: watch
 watch: setup ## Automatically build and install plugin on save.
 	ls ${SOURCE} | ${TEMP_DIR}/entr/bin/entr -s 'printf "\033c"; make install'
+
+.PHONY: release
+release: build ## Build and copy bundled plugin to directory
+	cp ${BUILD_DIR}/${TARGET} ${TARGET}
