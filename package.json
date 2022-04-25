@@ -4,7 +4,8 @@
   "description": "A BetterDiscord plugin to automagically upload files over 8MB.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "bundle": "esbuild index.js --bundle --minify --outfile=build/bundled.js --platform=node --external:electron",
+    "build": "make build"
   },
   "repository": {
     "type": "git",
@@ -16,12 +17,9 @@
   },
   "homepage": "https://github.com/mack/magic-upload#readme",
   "devDependencies": {
+    "esbuild": "^0.14.38",
     "eslint": "^8.14.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.26.0"
-  },
-  "dependencies": {
-    "epipebomb": "^1.0.0",
-    "node-watch": "^0.7.3"
   }
 }

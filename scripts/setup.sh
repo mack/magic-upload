@@ -1,6 +1,7 @@
 #!/bin/bash	
 
 TEMP_FILE=$1
+BUILD_DIR=$2
 
 if [ ! -d "$TEMP_FILE/entr" ] 
 then
@@ -10,3 +11,5 @@ then
     sh configure
     make DESTDIR="." PREFIX="" install
 fi
+
+mkdir -p ${BUILD_DIR}
