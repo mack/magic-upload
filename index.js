@@ -871,10 +871,12 @@ module.exports = (() => {
       this.storage = new StorageHandler(this.getName());
       this.oauther = new OAuther(this.storage, this.overrideDiscordUpload);
       this.uploader = new FileUploader(this.storage, this.oauther);
+      this.realUploadLimit = moduleFileCheck.maxFileSize('', true);
     }
 
     overrideDiscordUpload() {
       /* Patch upload methods */
+      const { realUploadLimit, storage, uploader } = this;
       XUtil.log('Overriding default file upload functionality.');
       XUtil.override(moduleFileCheck, 'maxFileSize', ({ methodArguments, callOriginalMethod }) => {
         const useOriginal = methodArguments[1];
@@ -890,8 +892,7 @@ module.exports = (() => {
         const [originalArguments] = methodArguments;
         const { channelId, uploads, parsedMessage } = originalArguments;
         uploads.forEach((upload) => {
-          const realUploadLimit = moduleFileCheck.maxFileSize('', true);
-          if (!this.storage.getSettings().uploadEverything
+          if (!storage.getSettings().uploadEverything
             && upload.item.file.size < realUploadLimit) {
             // File is within discord upload limit, upload as normal
             XUtil.info(`File "${upload.item.file.name}" is within discords upload limit, using default file uploader.`);
@@ -905,8 +906,8 @@ module.exports = (() => {
               channelId,
               parsedMessage.content,
             );
-            if (this.storage.getSettings().autoUpload) {
-              this.uploader.upload(magicFile);
+            if (storage.getSettings().autoUpload) {
+              uploader.upload(magicFile);
             } else {
               this.openUploadPrompt(magicFile, () => this.uploader.upload(magicFile));
             }
