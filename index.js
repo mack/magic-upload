@@ -18,6 +18,8 @@ module.exports = (() => {
   const moduleFileUpload = global.BdApi.findModuleByProps('instantBatchUpload', 'upload');
   const moduleMessageActions = global.BdApi.findModuleByProps('sendMessage');
   const moduleButtonElement = global.BdApi.findModuleByProps('BorderColors');
+  const moduleSwitchElement = global.BdApi.findModuleByDisplayName('SwitchItem');
+  const moduleTextboxElement = global.BdApi.findModule((m) => m.defaultProps && m.defaultProps.type === 'text');
   const moduleModalActions = global.BdApi.findModuleByProps('useModalsStore', 'closeModal');
   const moduleAttachmentUpload = global.BdApi.findAllModules(
     (m) => m.AttachmentUpload,
@@ -162,7 +164,6 @@ module.exports = (() => {
       const scrollerInner = document.querySelector(`.${moduleMessageScrollerClasses.scrollerInner}`);
       const scrollerSpacer = document.querySelector(`.${moduleMessageScrollerClasses.scrollerSpacer}`);
 
-      console.log(scrollerInner);
       if (scrollerInner) scrollerInner.insertBefore(this.messageContainer, scrollerSpacer);
     }
 
@@ -858,31 +859,153 @@ module.exports = (() => {
       this.uploader.cleanup();
     }
 
-    getSettingsPanel() {
-      const credentials = this.storage.load(config.storage.credentialsKey, true);
-      const ua = new UploadAttachment('someFileName', 23, 0, () => { ua.setProgress(ua.progress() + 5); });
-      const settings = document.createElement('div');
-      if (credentials) {
-        // console.log("SETINGINSINGG")
-        /* No OAuth Setting UI */
-        // const header = document.createElement('h1');
-        // const onClick = () => {console.log("CLICKED")};
-        // const reactButton = global.BdApi.React.createElement(attach, {
-        //   children: 'this.name',
-        //   note: 'this.note',
-        //   value: 'this.value',
-        // });
-        // global.BdApi.ReactDOM.render(reactButton, test);
-        // header.innerHTML = "This is a header";
-        // settings.appendChild(header);
-      } else {
-        /* Default Setting UI */
-        const header = document.createElement('h1');
-        header.innerHTML = 'This is a header';
-        settings.appendChild(header);
+    createSettingsCategory() {
+      const category = document.createElement('div');
+      category.style.color = '#b9bbbe';
+      category.style.fontSize = '16px';
+      return category;
+    }
+
+    createSwitchControl(config) {
+      const category = this.createSettingsCategory();
+      const reactSwitch = global.BdApi.React.createElement(moduleSwitchElement, {
+        value: config.value,
+        children: config.name,
+        note: config.note,
+        disabled: config.disabled,
+        onChange: config.onChange,
+      });
+      global.BdApi.ReactDOM.render(reactSwitch, category);
+      return category;
+    }
+
+    createButtonControl(config) {
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.marginTop = '8px';
+      const reactButton = global.BdApi.React.createElement(moduleButtonElement, {
+        children: config.name,
+        onClick: config.onClick,
+      });
+      global.BdApi.ReactDOM.render(reactButton, buttonContainer);
+      return buttonContainer;
+    }
+
+    createTextBoxControl(config) {
+      const textBoxContainer = document.createElement('div');
+      textBoxContainer.style.marginTop = '8px';
+      textBoxContainer.style.marginBottom = '20px';
+
+      const reactButton = global.BdApi.React.createElement(moduleTextboxElement, {
+        value: config.value,
+        disabled: config.disabled,
+        placeholder: config.placeholder || '',
+      });
+      global.BdApi.ReactDOM.render(reactButton, textBoxContainer);
+      if (config.name) {
+        const name = document.createElement('div');
+        name.innerHTML = config.name;
+        name.style.marginBottom = '8px';
+        name.style.marginTop = '4px';
+        name.style.color = 'white';
+        name.style.fontSize = '16px';
+        textBoxContainer.prepend(name);
       }
 
-      return ua.element();
+      if (config.note) {
+        const note = document.createElement('div');
+        note.innerHTML = config.note;
+        note.style.marginBottom = '12px';
+        note.style.marginTop = '6px';
+        note.style.color = '#b9bbbe';
+        note.style.fontSize = '14px';
+        textBoxContainer.appendChild(note);
+      }
+      return textBoxContainer;
+    }
+
+    getSettingsPanel() {
+      const credentials = this.storage.load(config.storage.credentialsKey, true);
+
+      const settings = document.createElement('div');
+      if (!credentials) {
+        /* No OAuth Setting UI */
+        const category = this.createSettingsCategory();
+
+        const label = document.createElement('div');
+        label.style.marginBottom = '0.75rem';
+        label.innerHTML = `🔌 Hello! It looks like you haven't given access to your Google Drive. 
+          This plugin <i>requires</i> you to sign in with Google in order to function.`;
+        category.appendChild(label);
+
+        category.appendChild(this.createButtonControl({
+          name: 'Connect Google Drive',
+          onClick: () => {
+            this.oauther.launch();
+            closeLastModal();
+          },
+        }));
+
+        settings.appendChild(category);
+      } else {
+        /* No OAuth Setting UI */
+        [
+          {
+            name: 'Automatic file uploading',
+            note: 'Do not prompt me when uploading files that exceed the upload limit.',
+            value: true,
+            disabled: false,
+            onChange: () => {},
+          },
+          // Make this a drop down, settings (Regular drive link, direct drive link)
+          {
+            name: 'Share direct download link',
+            note: 'Share a direct link to the Google Drive file.',
+            value: false,
+            disabled: false,
+            onChange: () => {},
+          },
+          {
+            name: 'Google Drive embed',
+            note: 'Attempt to display an embedded preview of content from google drive links.',
+            value: false,
+            disabled: false,
+            onChange: () => {},
+          },
+          {
+            name: 'Verbose logs',
+            note: 'Display verbose console logs. Useful for debugging.',
+            value: false,
+            disabled: false,
+            onChange: () => {},
+          },
+        ].forEach((switchControl) => settings.appendChild(
+          this.createSwitchControl(switchControl),
+        ));
+
+        settings.appendChild(this.createTextBoxControl({
+          name: 'Google Drive refresh token',
+          value: credentials.access_token,
+          note: 'This value is immutable.',
+        }));
+
+        settings.appendChild(this.createTextBoxControl({
+          name: 'Google Drive refresh token',
+          value: credentials.refresh_token,
+          note: 'This value is immutable.',
+        }));
+
+        settings.appendChild(this.createButtonControl({
+          name: 'Unlink Google Drive',
+          onClick: () => {
+            OAuther.postRevokeToken(credentials.refresh_token);
+            this.storage.deleteCredentials();
+            infoToast('Google Drive has been unlinked.', { timeout: 5500 });
+            closeLastModal();
+          },
+        }));
+      }
+
+      return settings;
     }
   };
 })();
