@@ -5,4 +5,4 @@ These files are not used aside from being a refrence for the variables `SUCCESS_
 1) Make your changes to [success.html](success.html) or [parser.html](parser.html)
 2) Open this [HTML compression tool](https://www.textfixer.com/html/compress-html-compression.php).
 3) Paste in the uncompressed text and copy the output.
-4) Overwrite the variables in [index.jsx](../index.jsx)
+4) Overwrite the variables in [index.js](../index.js)

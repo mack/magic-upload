@@ -3,6 +3,7 @@
 TEMP_FILE=$1
 BUILD_DIR=$2
 
+npm install
 if [ ! -d "$TEMP_FILE/entr" ] 
 then
     echo "Downloading entr..."

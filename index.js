@@ -26,7 +26,7 @@ module.exports = (() => {
   /* ========== Global Constants & Internal Config ========== */
   const config = {
     meta: {
-      version: '0.0.1',
+      version: '1.0.0',
       name: 'MagicUpload',
       description: '🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.',
       authors: [{
@@ -168,6 +168,11 @@ module.exports = (() => {
       if (size === 0) return '0 Byte';
       const i = parseInt(Math.floor(Math.log(size) / Math.log(1024)), 10);
       return `${Math.round(size / 1024 ** i, 2)} ${sizes[i]}`;
+    },
+    prettifyType(type) {
+      const typeSplit = type.split('/');
+      if (typeSplit.length == 2) return typeSplit[0];
+      return undefined;
     },
     truncate(str, n = 35) {
       return (str.length > n) ? `${str.substr(0, n - 1)}...` : str;
@@ -373,7 +378,7 @@ module.exports = (() => {
                       this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
                       XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
                       this.share(driveItem.id, () => {
-                        XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
+                        XUtil.info(`${file.name} permissions have been updated to "anyone with link".`);
                         const shareLink = this.storage.getSettings().directLink
                           ? XUtil.directDriveLink(driveItem.id) : XUtil.driveLink(driveItem.id);
                         FileUploader.sendFileLinkMessage(file, shareLink);
@@ -842,10 +847,12 @@ module.exports = (() => {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    openUploadPrompt(filename, callback) {
-      // BdApi.React.createElement(_checkbox, "This is a link.")
-      global.BdApi.showConfirmationModal(filename, [
-        'Are you sure you want to upload this file to Google Drive and share it?',
+    openUploadPrompt(file, callback) {
+      const fileName = XUtil.truncate(file.name);
+      const fileType = XUtil.prettifyType(file.type);
+      const fileSize = XUtil.prettifySize(file.size);
+      global.BdApi.showConfirmationModal(fileName, [
+        `Are you sure you want to upload this ${fileType || 'file'} (${fileSize}) to Google Drive and share it?`,
       ], {
         confirmText: 'Upload to Drive',
         cancelText: 'Cancel',
@@ -897,10 +904,7 @@ module.exports = (() => {
             if (this.storage.getSettings().autoUpload) {
               this.uploader.upload(magicFile);
             } else {
-              this.openUploadPrompt(
-                XUtil.truncate(magicFile.name),
-                () => this.uploader.upload(magicFile),
-              );
+              this.openUploadPrompt(magicFile, () => this.uploader.upload(magicFile));
             }
           }
         });
@@ -1033,7 +1037,7 @@ module.exports = (() => {
       clearHistoryButton.onclick = () => {
         global.BdApi.showConfirmationModal(
           'Are you sure?',
-          'This will remove all file upload history from the plugin. This will NOT delete any files from Google Drive.',
+          'Are you sure you want to delete the plugin\'s entire upload history. This will NOT delete any files from Google Drive.',
           {
             confirmText: 'Clear history',
             cancelText: 'Cancel',
