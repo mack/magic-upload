@@ -1,9 +1,3 @@
-/**
- * @name MagicUpload
- * @website https://github.com/mack/magic-upload
- * @source
- */
-
 module.exports = (() => {
   /* ========== Required Dependencies ========== */
   const http = require('http');
@@ -21,19 +15,18 @@ module.exports = (() => {
   const moduleSwitchElement = global.BdApi.findModuleByDisplayName('SwitchItem');
   const moduleTextboxElement = global.BdApi.findModule((m) => m.defaultProps && m.defaultProps.type === 'text');
   const moduleModalActions = global.BdApi.findModuleByProps('useModalsStore', 'closeModal');
-  const moduleAttachmentUpload = global.BdApi.findAllModules(
-    (m) => m.AttachmentUpload,
-  )[0].AttachmentUpload;
-  const moduleMessageClasses = global.BdApi.findAllModules(
-    (m) => m.avatar && m.messageContent && m.alt,
-  )[0];
-  const moduleMoreMessageClasses = global.BdApi.findModuleByProps('groupStart');
+  const moduleAttachmentUpload = global.BdApi.findModule((m) => m.AttachmentUpload).AttachmentUpload;
+  const moduleMessageClasses = {
+    ...global.BdApi.findModule((m) => m.avatar && m.messageContent && m.alt),
+    ...global.BdApi.findModuleByProps('groupStart'),
+  };
   const moduleMessageScrollerClasses = global.BdApi.findModuleByProps('scrollerSpacer');
+  const moduleDividerClasses = { ...global.BdApi.findModuleByProps('divider'), ...global.BdApi.findModuleByProps('dividerDefault') };
 
   /* ========== Global Constants & Internal Config ========== */
   const config = {
     meta: {
-      version: '0.0.1',
+      version: '1.0.0',
       name: 'MagicUpload',
       description: '🧙‍♀️ A BetterDiscord plugin to automagically upload files over 8MB.',
       authors: [{
@@ -56,6 +49,7 @@ module.exports = (() => {
       iv: crypto.randomBytes(16),
       credentialsKey: '_magicupload_oa_creds_gd',
       uploadsKey: '_magicupload_files_inprogress',
+      uploadHistoryKey: '_magicupload_files_completed',
       settingsKey: '_magicupload_settings',
       defaultSettings: {
         autoUpload: true,
@@ -76,6 +70,7 @@ module.exports = (() => {
   const HTTP_CODE_UNAUTHORIZED = 401;
   const HTTP_CODE_NOT_FOUND = 404;
   const HTTP_CODE_INTERNAL_ERR = 500;
+  // eslint-disable-next-line max-len
   const OAUTH_AUTH_URL = `https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive&redirect_uri=http://${config.oauth.handler.host}:${config.oauth.handler.port}&response_type=code&client_id=${config.oauth.clientId}`;
   const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
   const OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
@@ -84,12 +79,17 @@ module.exports = (() => {
   const DRIVE_READ_ROLE = 'reader';
   const DRIVE_ANYONE_GRANTEE = 'anyone';
   const UPLOAD_CANCELLED = 'upload_cancelled';
+  // eslint-disable-next-line max-len
   const SUCCESS_HTML = () => '<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Google Drive Connected</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } .header img { width: 80px; } .header { display: flex; align-items: center; font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } .header i { font-size: 18px; margin: 0 0.5rem; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .magic { color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } </style> <div class="container"> <h1 class="header"><span class="magic">MagicUpload</span> <i class="fa-solid fa-link"></i> <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" /></h1> <hr> <p class="about">✅ You"ve successfully linked your Google Drive account! You can now upload files that exceed your discord limit and they"ll automatically uploaded to your drive.</p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); const jsConfetti = new JSConfetti(); setTimeout(() => { jsConfetti.addConfetti() }, 2000); </script> </body></html>';
+  // eslint-disable-next-line max-len
   const ERROR_HTML = (props) => `<!DOCTYPE html><html> <head> <meta charset="UTF-8"> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&family=Staatliches&display=swap" rel="stylesheet"> <title>Magic Upload - Error</title> <script src="https://kit.fontawesome.com/9fd6d0c095.js" crossorigin="anonymous"></script> </head> <body> <style> * { box-sizing: border-box; } body { max-width: 870px; margin: 0 auto; } .container { text-align: center; font-family: "Roboto", sans-serif; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 90vh; position: relative; color: #363636; padding-left: 5rem; padding-right: 5rem; } h1 { font-family: "Staatliches", cursive; font-size: 48px; margin-bottom: 0; } p { padding: 0 2rem; margin-top: 0; font-size: 18px; line-height: 24px; } .footer { position: absolute; bottom: 1rem; font-size: 14px; opacity: 0.4; } .error, .header > i { color: rgb(229, 45, 45); text-shadow: 0 8px 24px rgb(229 45 45 / 25%); } .tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; } .tooltip .tooltiptext { font-size: 16px; line-height: 20px; visibility: hidden; width: 120px; bottom: 130%; left: 50%; margin-left: -60px; background-color: rgba(0,0,0,0.9); color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; opacity: 0; transition: .3s; position: absolute; z-index: 1; } .tooltip .tooltiptext::after { content: " "; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #363636 transparent transparent transparent; } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; } a { color: #363636; transition: .3s; } a:hover{ color: #5e2de5; text-shadow: 0 8px 24px rgb(94 45 229 / 25%); } hr { width: 50px; opacity: 0.5; } .error_container { max-width: 100%; position: relative; } .error_container:hover .error_label { opacity: 0.3; } .error_code { font-size: 14px; background-color: rgba(0,0,0,0.92); border-radius: 6px; padding-top: 2rem; padding-bottom: 2rem; padding-right: 2rem; padding-left: 2rem; color: white; text-align: left; word-wrap: break-word; font-family: 'Roboto Mono', monospace; } .error_label { transition: .3s; cursor: default; font-size: 12px; text-transform: uppercase; opacity: 0; color: white; position: absolute; right: 2rem; top: 1rem; } </style> <div class="container"> <h1 class="header"><i class="fa-solid fa-triangle-exclamation"></i> Uh oh, something went <span class="error">wrong</span> <i class="fa-solid fa-triangle-exclamation"></i></h1> <hr> <p class="about">We weren&#39;t able to connect your Google Drive account with MagicUpload. Please try again or reach out to help in our community discord. </p> <p class="help">Need any help? Checkout our <a href="https://github.com/mack/magic-upload" class="tooltip"> <i class="fa-brands fa-github"></i> <span class="tooltiptext">GitHub</span> </a> or <a href="" class="tooltip"> <i class="fa-brands fa-discord"></i> <span class="tooltiptext">Community Discord</span> </a> . </p> <div class="error_container"> <span class="error_label">OAuth Response // JSON</span> <div class="error_code"> ${props.error_message} </div> </div> <span class="footer">&#169; Mackenzie Boudreau</span> </div> <script src="https://unpkg.com/scrollreveal@4.0.0/dist/scrollreveal.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script> <script> const sr = ScrollReveal({ origin: "top", distance: "60px", duration: 2500, delay: 400, }); sr.reveal(".header", {delay: 700}); sr.reveal("hr", {delay: 500}); sr.reveal(".about", {delay: 900, origin: "bottom"}); sr.reveal(".help", {delay: 1000, origin: "bottom"}); sr.reveal(".error_code", {delay: 1000, origin: "bottom"}); sr.reveal(".footer", {delay: 800, origin: "bottom"}); </script> </body></html>`;
 
   const XUtil = {
     log(...message) {
-      if (global.BdApi.loadData(config.meta.name, config.storage.settingsKey).verbose) {
+      // Forced to get settings manually here.
+      // Code should be refactored in the future to use getSettings()
+      const settings = global.BdApi.loadData(config.meta.name, config.storage.settingsKey) || {};
+      if (settings.verbose) {
         XUtil.console(message, 'log');
       }
     },
@@ -166,6 +166,17 @@ module.exports = (() => {
         window.magicUploadOverrides.forEach((cancel) => cancel());
       }
     },
+    prettifySize(size) {
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      if (size === 0) return '0 Byte';
+      const i = parseInt(Math.floor(Math.log(size) / Math.log(1024)), 10);
+      return `${Math.round(size / 1024 ** i, 2)} ${sizes[i]}`;
+    },
+    prettifyType(type) {
+      const typeSplit = type.split('/');
+      if (typeSplit.length == 2) return typeSplit[0];
+      return undefined;
+    },
     truncate(str, n = 35) {
       return (str.length > n) ? `${str.substr(0, n - 1)}...` : str;
     },
@@ -213,7 +224,7 @@ module.exports = (() => {
       const messageWrapper = document.createElement('div');
 
       const message = document.createElement('div');
-      message.className = `${moduleMessageClasses.cozy} ${moduleMoreMessageClasses.groupStart} ${moduleMessageClasses.wrapper}`;
+      message.className = `${moduleMessageClasses.cozy} ${moduleMessageClasses.groupStart} ${moduleMessageClasses.wrapper}`;
 
       const avatar = document.createElement('img');
       avatar.src = avatarUrl;
@@ -367,9 +378,10 @@ module.exports = (() => {
                     this.unregisterUpload(streamLocation);
                     if (err === null) {
                       // Upload was successful, add permissions and share!
+                      this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
                       XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
                       this.share(driveItem.id, () => {
-                        XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
+                        XUtil.info(`${file.name} permissions have been updated to "anyone with link".`);
                         const shareLink = this.storage.getSettings().directLink
                           ? XUtil.directDriveLink(driveItem.id) : XUtil.driveLink(driveItem.id);
                         FileUploader.sendFileLinkMessage(file, shareLink);
@@ -412,7 +424,7 @@ module.exports = (() => {
     }
 
     unregisterUpload(streamLocation) {
-      XUtil.log('Unregistering upload from upload registry.');
+      XUtil.log('Unregistering file from upload registry.');
       const registry = this.getRegisteredUploads();
       delete registry[streamLocation];
       this.storage.store(config.storage.uploadsKey, registry);
@@ -453,8 +465,8 @@ module.exports = (() => {
       const buffer = Buffer.alloc(CHUNK_SIZE);
 
       fs.open(file.path, 'r', (err, fd) => {
-        if (err || !fd) {
-          callback(null, err);
+        if (err || !fd || typeof fd !== 'number') {
+          callback(null, file, err);
         }
         const readNextChunk = (cursor) => {
           // Interupt a file from uploading if user cancels
@@ -464,7 +476,7 @@ module.exports = (() => {
           }
           fs.read(fd, buffer, 0, CHUNK_SIZE, cursor, (err, byteLength) => {
             if (err) {
-              callback(null, err);
+              callback(null, file, err);
             }
             let chunk;
             if (byteLength < CHUNK_SIZE) {
@@ -573,6 +585,7 @@ module.exports = (() => {
             this.unregisterUpload(streamLocation);
             if (err === null) {
               // Upload was successful, add permissions and share!
+              this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
               XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
               this.share(driveItem.id, () => {
                 XUtil.info(`${file.name} permissions have been updated to "anyone with link.`);
@@ -605,7 +618,14 @@ module.exports = (() => {
       this.pluginName = pluginName;
 
       /* Alias Functions */
-      const { credentialsKey, settingsKey, defaultSettings } = config.storage;
+      const {
+        credentialsKey,
+        uploadHistoryKey,
+        settingsKey,
+        defaultSettings,
+      } = config.storage;
+
+      // OAuth Helpers
       this.deleteCredentials = () => this.delete(credentialsKey);
       this.getAccessToken = () => {
         const credentials = this.load(credentialsKey, true);
@@ -617,6 +637,20 @@ module.exports = (() => {
         this.store(credentialsKey, credentials, true);
         return token;
       };
+
+      // FileUploader Helpers
+      this.getUploadHistory = () => this.load(uploadHistoryKey, false) || [];
+      this.patchUploadHistory = (completedUpload) => {
+        const uploadHistory = this.getUploadHistory();
+        uploadHistory.push(completedUpload);
+        this.store(uploadHistoryKey, uploadHistory, false);
+      };
+      this.clearUploadHistory = () => {
+        XUtil.log('Clearing upload history...');
+        this.store(uploadHistoryKey, [], false);
+      }
+
+      // Setting Helpers
       this.getSettings = () => this.load(settingsKey, false) || defaultSettings;
       this.saveSettings = (settings) => this.store(settingsKey, settings, false);
       this.patchSettings = (newSettings) => {
@@ -710,7 +744,7 @@ module.exports = (() => {
       });
     }
 
-    constructor(storage, flowCompleted) {
+    constructor(storage, flowCompleted, originalThis) {
       this.storage = storage;
       this.server = http.createServer((req, res) => {
         const { query } = url.parse(req.url, true);
@@ -724,7 +758,7 @@ module.exports = (() => {
               res.write(SUCCESS_HTML());
               XUtil.successToast('Google Drive connected!', { timeout: 5500 });
               XUtil.info('Google Drive successfully linked.');
-              if (flowCompleted) flowCompleted();
+              if (flowCompleted) flowCompleted(originalThis);
             } else {
               XUtil.err('Failed to retrieve access and refresh tokens.');
               res.writeHeader(HTTP_CODE_INTERNAL_ERR, { 'Content-Type': 'text/html' });
@@ -750,6 +784,7 @@ module.exports = (() => {
         callback();
         return;
       }
+
       const { port, host } = config.oauth.handler;
       this.server.listen(port, host, () => {
         XUtil.log(`Listening for OAuth redirects on http://${host}:${port}...`);
@@ -799,23 +834,29 @@ module.exports = (() => {
     getVersion() { return config.meta.version; }
 
     openOAuthPrompt() {
-      global.BdApi.showConfirmationModal('🔌 Connect your Google Drive', 'Magic Upload requires Google Drive. To use this plugin you must connect your Google account.', {
-        confirmText: 'Connect Google Account',
-        cancelText: 'Disable Plugin',
-        onConfirm: () => {
-          this.oauther.launch();
+      global.BdApi.showConfirmationModal(
+        '🔌 Connect your Google Drive',
+        'Magic Upload requires Google Drive. To use this plugin you must connect your Google account.',
+        {
+          confirmText: 'Connect Google Account',
+          cancelText: 'Disable Plugin',
+          onConfirm: () => {
+            this.oauther.launch();
+          },
+          onCancel: () => {
+            global.BdApi.Plugins.disable(this.getName());
+          },
         },
-        onCancel: () => {
-          global.BdApi.Plugins.disable(this.getName());
-        },
-      });
+      );
     }
 
     // eslint-disable-next-line class-methods-use-this
-    openUploadPrompt(filename, callback) {
-      // BdApi.React.createElement(_checkbox, "This is a link.")
-      global.BdApi.showConfirmationModal(filename, [
-        'Are you sure you want to upload this file to Google Drive and share it?',
+    openUploadPrompt(file, callback) {
+      const fileName = XUtil.truncate(file.name);
+      const fileType = XUtil.prettifyType(file.type);
+      const fileSize = XUtil.prettifySize(file.size);
+      global.BdApi.showConfirmationModal(fileName, [
+        `Are you sure you want to upload this ${fileType || 'file'} (${fileSize}) to Google Drive and share it?`,
       ], {
         confirmText: 'Upload to Drive',
         cancelText: 'Cancel',
@@ -828,12 +869,13 @@ module.exports = (() => {
     /* ========== Plugin Lifecycle Methods ========== */
     load() {
       this.storage = new StorageHandler(this.getName());
-      this.oauther = new OAuther(this.storage, this.overrideDiscordUpload);
+      this.oauther = new OAuther(this.storage, this.overrideDiscordUpload, this);
       this.uploader = new FileUploader(this.storage, this.oauther);
     }
 
-    overrideDiscordUpload() {
+    overrideDiscordUpload(originalThis) {
       /* Patch upload methods */
+      const { realUploadLimit, storage, uploader } = originalThis;
       XUtil.log('Overriding default file upload functionality.');
       XUtil.override(moduleFileCheck, 'maxFileSize', ({ methodArguments, callOriginalMethod }) => {
         const useOriginal = methodArguments[1];
@@ -849,8 +891,7 @@ module.exports = (() => {
         const [originalArguments] = methodArguments;
         const { channelId, uploads, parsedMessage } = originalArguments;
         uploads.forEach((upload) => {
-          const realUploadLimit = moduleFileCheck.maxFileSize('', true);
-          if (!this.storage.getSettings().uploadEverything
+          if (!storage.getSettings().uploadEverything
             && upload.item.file.size < realUploadLimit) {
             // File is within discord upload limit, upload as normal
             XUtil.info(`File "${upload.item.file.name}" is within discords upload limit, using default file uploader.`);
@@ -864,13 +905,10 @@ module.exports = (() => {
               channelId,
               parsedMessage.content,
             );
-            if (this.storage.getSettings().autoUpload) {
-              this.uploader.upload(magicFile);
+            if (storage.getSettings().autoUpload) {
+              uploader.upload(magicFile);
             } else {
-              this.openUploadPrompt(
-                XUtil.truncate(magicFile.name),
-                () => this.uploader.upload(magicFile),
-              );
+              this.openUploadPrompt(magicFile, () => this.uploader.upload(magicFile));
             }
           }
         });
@@ -879,11 +917,12 @@ module.exports = (() => {
 
     start() {
       XUtil.info('MagicUpload has started.');
+      this.realUploadLimit = moduleFileCheck.maxFileSize('', true);
       if (!this.storage.getAccessToken()) {
         // No token found. Prompt user to connect Google Drive.
         this.openOAuthPrompt();
       } else {
-        this.overrideDiscordUpload();
+        this.overrideDiscordUpload(this);
       }
     }
 
@@ -894,11 +933,16 @@ module.exports = (() => {
       this.uploader.cleanup();
     }
 
-    createSettingsCategory() {
+    createSettingsCategory(children) {
       const category = document.createElement('div');
-      category.style.color = '#b9bbbe';
-      category.style.fontSize = '16px';
-      category.style.lineHeight = '18px';
+      category.className = moduleDividerClasses.container;
+      category.appendChild(children);
+
+      const categoryDivider = document.createElement('div');
+      categoryDivider.className = `${moduleDividerClasses.divider} ${moduleDividerClasses.dividerDefault}`;
+      categoryDivider.style.borderTop = 'thin solid #4f545c7a';
+      categoryDivider.style.height = '1px';
+      category.appendChild(categoryDivider);
       return category;
     }
 
@@ -920,7 +964,7 @@ module.exports = (() => {
           });
         }
       }
-      const category = this.createSettingsCategory();
+      const switchContainer = document.createElement('div');
       const reactSwitch = global.BdApi.React.createElement(SwitchWrapper, {
         value: config.value,
         children: config.name,
@@ -928,8 +972,8 @@ module.exports = (() => {
         disabled: config.disabled,
         onChange: config.onChange,
       });
-      global.BdApi.ReactDOM.render(reactSwitch, category);
-      return category;
+      global.BdApi.ReactDOM.render(reactSwitch, switchContainer);
+      return switchContainer;
     }
 
     createButtonControl(config) {
@@ -961,6 +1005,7 @@ module.exports = (() => {
         name.style.marginTop = '4px';
         name.style.color = 'white';
         name.style.fontSize = '16px';
+        name.style.fontWeight = '500';
         textBoxContainer.prepend(name);
       }
 
@@ -976,13 +1021,101 @@ module.exports = (() => {
       return textBoxContainer;
     }
 
+    createHistoryControl() {
+      const uploads = this.storage.getUploadHistory().sort((a, b) => (new Date(b.uploadedAt) - new Date(a.uploadedAt)));
+
+      const history = document.createElement('div');
+      const title = document.createElement('h1');
+      title.innerHTML = `Upload History (${uploads.length})`;
+      title.style.color = '#fff';
+      title.style.fontWeight = '500';
+      title.style.position = 'relative';
+      title.style.marginBottom = '0.5rem';
+      const clearHistoryButton = document.createElement('span');
+      clearHistoryButton.innerHTML = 'clear history';
+      clearHistoryButton.style.position = 'absolute';
+      clearHistoryButton.style.right = '4px';
+      clearHistoryButton.style.cursor = 'pointer';
+      clearHistoryButton.style.fontSize = '14px';
+      clearHistoryButton.style.opacity = '0.4';
+      clearHistoryButton.style.textTransform = 'uppercase';
+      clearHistoryButton.onclick = () => {
+        global.BdApi.showConfirmationModal(
+          'Are you sure?',
+          'Are you sure you want to delete the plugin\'s entire upload history. This will NOT delete any files from Google Drive.',
+          {
+            confirmText: 'Clear history',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+              this.storage.clearUploadHistory();
+              XUtil.successToast('Upload history cleared. Please refresh settings.');
+            },
+          },
+        );
+      };
+      title.appendChild(clearHistoryButton);
+      history.appendChild(title);
+
+      const historyList = document.createElement('ol');
+      historyList.style.maxHeight = '200px';
+      historyList.style.backgroundColor = '#2b2e31';
+      historyList.style.overflow = 'scroll';
+      historyList.style.borderRadius = '6px';
+      historyList.style.padding = '0.75rem';
+
+      if (uploads.length > 0) {
+        uploads.forEach((upload) => {
+          const historyItem = document.createElement('li');
+          historyItem.onmouseover = () => { historyItem.style.backgroundColor = '#41444a'; };
+          historyItem.onmouseout = () => { historyItem.style.backgroundColor = 'transparent'; };
+          historyItem.style.paddingTop = '1rem';
+          historyItem.style.paddingLeft = '0.75rem';
+          historyItem.style.paddingRight = '0.75rem';
+          historyItem.style.borderRadius = '4px';
+          historyItem.style.paddingBottom = '1rem';
+          historyItem.style.display = 'flex';
+          historyItem.style.justifyContent = 'space-between';
+          historyItem.style.cursor = 'pointer';
+          historyItem.onclick = () => window.open(XUtil.driveLink(upload.driveItem.id));
+
+          const historyFileName = document.createElement('span');
+          historyFileName.style.fontWeight = '500';
+          historyFileName.innerHTML = `${XUtil.truncate(upload.file.name)}`;
+          historyItem.appendChild(historyFileName);
+          const historyFileSize = document.createElement('span');
+          historyFileSize.style.fontSize = '14px';
+          historyFileSize.innerHTML = `${XUtil.prettifySize(upload.file.size)}`;
+          historyItem.appendChild(historyFileSize);
+
+          historyList.appendChild(historyItem);
+        });
+      } else {
+        const noUploadHistory = document.createElement('div');
+        noUploadHistory.style.height = '60px';
+        noUploadHistory.style.fontSize = '15px';
+        noUploadHistory.style.opacity = '0.4';
+        noUploadHistory.style.display = 'flex';
+        noUploadHistory.style.justifyContent = 'center';
+        noUploadHistory.style.alignItems = 'center';
+        noUploadHistory.innerHTML = 'You haven\'t uploaded any files yet...';
+        historyList.appendChild(noUploadHistory);
+      }
+      history.appendChild(historyList);
+
+      return history;
+    }
+
     getSettingsPanel() {
       const credentials = this.storage.load(config.storage.credentialsKey, true);
 
       const settings = document.createElement('div');
+      settings.style.color = '#b9bbbe';
+      settings.style.fontSize = '16px';
+      settings.style.lineHeight = '18px';
+
       if (!credentials) {
         /* No OAuth Setting UI */
-        const category = this.createSettingsCategory();
+        // const category = this.createSettingsCategory();
 
         const label = document.createElement('div');
         label.style.lineHeight = '20px';
@@ -990,17 +1123,15 @@ module.exports = (() => {
         label.style.marginBottom = '1rem';
         label.innerHTML = `🔌 Hello! It looks like you haven't given access to your Google Drive. 
           This plugin <i>requires</i> you to sign in with Google in order to function.`;
-        category.appendChild(label);
+        settings.appendChild(label);
 
-        category.appendChild(this.createButtonControl({
+        settings.appendChild(this.createButtonControl({
           name: 'Connect Google Drive',
           onClick: () => {
             this.oauther.launch();
             XUtil.closeLastModal();
           },
         }));
-
-        settings.appendChild(category);
       } else {
         /* No OAuth Setting UI */
         [
@@ -1011,13 +1142,13 @@ module.exports = (() => {
             disabled: false,
             onChange: (e) => { this.storage.patchSettings({ autoUpload: e }); },
           },
-          {
-            name: 'Rich embed',
-            note: 'Attempt to display an embedded preview of content from google drive links.',
-            value: this.storage.getSettings().embed,
-            disabled: false,
-            onChange: (e) => { this.storage.patchSettings({ embed: e }); },
-          },
+          // {
+          //   name: 'Rich embed',
+          //   note: 'Attempt to display an embedded preview of content from google drive links.',
+          //   value: this.storage.getSettings().embed,
+          //   disabled: false,
+          //   onChange: (e) => { this.storage.patchSettings({ embed: e }); },
+          // },
           {
             name: 'Upload Everything',
             note: 'Use Google Drive for all files, including ones within discords upload limit.',
@@ -1033,6 +1164,7 @@ module.exports = (() => {
             disabled: false,
             onChange: (e) => { this.storage.patchSettings({ directLink: e }); },
           },
+          // This should be in an advanced tab in future
           {
             name: 'Verbose logs',
             note: 'Display verbose console logs. Useful for debugging.',
@@ -1044,6 +1176,10 @@ module.exports = (() => {
           this.createSwitchControl(switchControl),
         ));
 
+        const historyControl = this.createSettingsCategory(this.createHistoryControl());
+        settings.appendChild(historyControl);
+
+        // This should be in an advanced tab in future
         settings.appendChild(this.createTextBoxControl({
           name: 'Google Drive refresh token',
           value: credentials.access_token,

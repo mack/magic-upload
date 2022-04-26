@@ -1,4 +1,5 @@
 #!/bin/bash
 
+BUILD_DIR=$1
 # TODO: Make more generic
-cp -a ./release/. "${HOME}/Library/Application Support/BetterDiscord/plugins"
+cp -a ./${BUILD_DIR}/. "${HOME}/Library/Application Support/BetterDiscord/plugins"

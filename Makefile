@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 PLUGIN_NAME=MagicUpload
 TEMP_DIR=.tmp
-RELEASE_DIR=release
+BUILD_DIR=build
+BD_HEADERS=bdheaders.js
 SOURCE=index.js
 TARGET=MagicUpload.plugin.js
 
@@ -11,17 +12,23 @@ help:
 
 # # ${TEMP_DIR}/BDPluginLibrary/node_modules/.bin/esbuild ${SOURCE} --bundle --minify --outfile=bundled.js --platform=node --external:electron
 .PHONY: build
-build: setup-tools ## Build a minified bundled version of the plugin.
-	cp ${SOURCE} ${RELEASE_DIR}/${TARGET}
+build: setup ## Build a minified bundled version of the plugin.
+	npm run bundle
+	cat ${BD_HEADERS} ${BUILD_DIR}/bundled.js > ${BUILD_DIR}/${TARGET}
+	rm ${BUILD_DIR}/bundled.js
 
 .PHONY: install
 install: build ## Copy release to BetterDiscord plugin directory.
-	sh scripts/install.sh
+	sh scripts/install.sh ${BUILD_DIR}
 
-.PHONY: setup-tools
-setup-tools: ## Install tools used to build and hot reload plugin.
-	sh scripts/setup.sh ${TEMP_DIR}
+.PHONY: setup
+setup: ## Install tools used to build and hot reload plugin.
+	sh scripts/setup.sh ${TEMP_DIR} ${BUILD_DIR}
 
 .PHONY: watch
-watch: setup-tools ## Automatically build and install plugin on save.
+watch: setup ## Automatically build and install plugin on save.
 	ls ${SOURCE} | ${TEMP_DIR}/entr/bin/entr -s 'printf "\033c"; make install'
+
+.PHONY: release
+release: build ## Build and copy bundled plugin to directory
+	cp ${BUILD_DIR}/${TARGET} ${TARGET}
