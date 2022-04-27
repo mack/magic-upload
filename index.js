@@ -376,7 +376,7 @@ module.exports = (() => {
                     this.uploadAttachments[streamLocation].destroy();
                     delete this.uploadAttachments[streamLocation];
                     this.unregisterUpload(streamLocation);
-                    if (err === null) {
+                    if (err === null && driveItem) {
                       // Upload was successful, add permissions and share!
                       this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
                       XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);
@@ -583,7 +583,7 @@ module.exports = (() => {
             this.uploadAttachments[streamLocation].destroy();
             delete this.uploadAttachments[streamLocation];
             this.unregisterUpload(streamLocation);
-            if (err === null) {
+            if (err === null && driveItem) {
               // Upload was successful, add permissions and share!
               this.storage.patchUploadHistory({ uploadedAt: new Date().toUTCString(), driveItem, file });
               XUtil.info(`${file.name} has been successfully uploaded to Google Drive.`);

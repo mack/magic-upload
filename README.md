@@ -1,8 +1,19 @@
+![GitHub all releases](https://img.shields.io/github/downloads/mack/magic-upload/total) ![GitHub Repo stars](https://img.shields.io/github/stars/mack/magic-upload) ![GitHub](https://img.shields.io/github/license/mack/magic-upload)
 # 🧙‍♀️✨ Magic Upload
-A BetterDiscord plugin to automagically upload files over 8MB.
+A BetterDiscord plugin to automagically upload files over 8MB. This plugin works by connecting your Google account and uploading files that exceed Discords limit to Google Drive.
+
+### Before & After Preview
+<p float="left">
+<img src="preview/before.png" width="400px"/> 
+<img src="preview/after.png" width="400px"/> 
+</p>
+
 <details>
-<summary style="cursor: pointer;"><b>How it works</b></summary>
-This plugin uses Google Drive in the background. Users must connect their Google account and then they're able to upload files that exceed Discords upload limit. The plugin will upload large files in the background, resume an upload if it's interupted, and send a share link on your behalf.
+<summary style="cursor: pointer;"><b>More screenshots</b></summary>
+<p float="left">
+<img src="preview/settings.png" width="400px"/> 
+<img src="preview/oauth.png" width="400px"/> 
+</p>
 </details>
 
 ## Getting Started
@@ -31,6 +42,17 @@ watch                          Automatically build and install plugin on save.
 
 ## Frequently Asked Questions
 <h3 id="install">How do I install a BetterDiscord plugin?</h3>
-TBD
+
+To install a BetterDiscord plugin, you'll need to have BetterDiscord installed and navigate to `Settings` > `Plugins` in Discord. From there you'll be able to click on `Open Plugins Folder`. Then all you have to do is add the file `MagicUpload.plugin.js` into your plugins folder.
+
 <h3 id="security">Will anyone have access to my Google Drive?</h3>
-TBD
+
+<b>Nope!</b> When you sign in with Google, an http server is started in the background that server listens for the response from Google. Meaning that there is no middleman intercepting your OAuth tokens. They are stored locally on your computer only and as an added layer of protection, encrypted before being stored on disk.
+<br>
+<br>
+However nothing is 100% secure, so if you feel like your tokens are ever comprimised, please <a href="https://support.google.com/accounts/answer/3466521?hl=en">remove the application</a> from your 3rd party applications ASAP.
+
+## Special Thanks ❤️
+- [@dftd](https://github.com/dftd) for providing feedback & beta testing.
+- [@SirArya](https://github.com/SirArya) for providing feedback & beta testing.
+- [@sterrio](https://github.com/sterrio) for providing feedback & beta testing.
