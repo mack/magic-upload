@@ -1,3 +1,4 @@
+![GitHub all releases](https://img.shields.io/github/downloads/mack/magic-upload/total) ![GitHub Repo stars](https://img.shields.io/github/stars/mack/magic-upload) ![GitHub](https://img.shields.io/github/license/mack/magic-upload)
 # 🧙‍♀️✨ Magic Upload
 A BetterDiscord plugin to automagically upload files over 8MB.
 <details>
@@ -31,6 +32,12 @@ watch                          Automatically build and install plugin on save.
 
 ## Frequently Asked Questions
 <h3 id="install">How do I install a BetterDiscord plugin?</h3>
-TBD
+
+To install a BetterDiscord plugin, you'll need to have BetterDiscord installed and navigate to `Settings` > `Plugins` in Discord. From there you'll be able to click on `Open Plugins Folder`. Then all you have to do is add the file `MagicUpload.plugin.js` into your plugins folder.
+
 <h3 id="security">Will anyone have access to my Google Drive?</h3>
-TBD
+
+<b>Nope!</b> When you sign in with Google, an HTTP server is started in the background on your computer that server listens for the response from Google. There is no middleman, so your tokens are never shared. As an added layer of protection, your tokens are encrypted before being stored on disk. 
+<br>
+<br>
+Though nothing is 100% secure, so if you feel like your tokens have been comprimised, <a href="https://support.google.com/accounts/answer/3466521?hl=en">remove the application</a> from your 3rd party applications.
