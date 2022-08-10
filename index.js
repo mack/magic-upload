@@ -6,7 +6,7 @@ module.exports = (() => {
   const crypto = require('crypto');
   const fs = require('fs');
 
-  const moduleDispatcher = global.BdApi.findModuleByProps('dirtyDispatch');
+  const moduleDispatcher = global.BdApi.findModuleByProps('dispatch', 'subscribe');
   const moduleUserActions = global.BdApi.findModuleByProps('getCurrentUser');
   const moduleFileCheck = global.BdApi.findModuleByProps('anyFileTooLarge', 'maxFileSize');
   const moduleFileUpload = global.BdApi.findModuleByProps('instantBatchUpload', 'upload');
@@ -648,7 +648,7 @@ module.exports = (() => {
       this.clearUploadHistory = () => {
         XUtil.log('Clearing upload history...');
         this.store(uploadHistoryKey, [], false);
-      }
+      };
 
       // Setting Helpers
       this.getSettings = () => this.load(settingsKey, false) || defaultSettings;
